@@ -1,15 +1,29 @@
 <rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
     <channel>
-        <title>All Posts - My New Hugo Site</title>
+        <title>All Posts - lyk の tech blog</title>
         <link>http://lyk.github.io/posts/</link>
-        <description>All Posts | My New Hugo Site</description>
-        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Tue, 21 Mar 2023 16:06:40 &#43;0800</lastBuildDate><atom:link href="http://lyk.github.io/posts/" rel="self" type="application/rss+xml" /><item>
+        <description>All Posts | lyk の tech blog</description>
+        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Tue, 08 Aug 2023 11:55:30 &#43;0800</lastBuildDate><atom:link href="http://lyk.github.io/posts/" rel="self" type="application/rss+xml" /><item>
+    <title>Map_reduce</title>
+    <link>http://lyk.github.io/posts/map_reduce/</link>
+    <pubDate>Tue, 08 Aug 2023 11:55:30 &#43;0800</pubDate>
+    <author>Author</author>
+    <guid>http://lyk.github.io/posts/map_reduce/</guid>
+    <description><![CDATA[MIT 6.824 2020 lab1-MapReduce实现笔记 花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。
+以下是我的一些笔记，这门课不允许在网上公开代码，但是为了便于描述，我还是将一部分核心代码贴了出来。
+Master和Worker的定义 命名方式随意了点：）
+看变量名大概就能知道什么意思，需要补充的是，TaskStatus的Start表示未被分配，Processing表示有worker正在处理，而Done表示该任务已经完成。
+另外，Master会维持一个全局的global_phase变量，用来指示现在所处的阶段，lifetime是 MapPhase -&gt; ReducePhase -&gt; CompletedPhase。并通过维护done_cnt计数器来知晓现在完成的Map/Reduce Task的数量，在全部完成时，进行Phase的转换。
+type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( MapPhase Phase = iota ReducePhase CompletedPhase ) // TaskType const ( Map TaskType = iota Reduce Wait Exit ) // TaskStatus const ( Start TaskStatus = iota Processing Done ) type MapTask struct { // machine_id int NReduce int TaskId int InputFile string Status TaskStatus // iter_files []string Time time.]]></description>
+</item>
+<item>
     <title>First_post</title>
     <link>http://lyk.github.io/posts/first_post/</link>
     <pubDate>Tue, 21 Mar 2023 16:06:40 &#43;0800</pubDate>
     <author>Author</author>
     <guid>http://lyk.github.io/posts/first_post/</guid>
-    <description><![CDATA[hello world!]]></description>
+    <description><![CDATA[hello world!
+打算开始写博客啦]]></description>
 </item>
 </channel>
 </rss>

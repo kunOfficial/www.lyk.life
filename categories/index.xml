@@ -1,7 +1,7 @@
 <rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
     <channel>
-        <title>Categories - Category - My New Hugo Site</title>
+        <title>Categories - Category - lyk の tech blog</title>
         <link>http://lyk.github.io/categories/</link>
-        <description>Categories - Category - My New Hugo Site</description>
+        <description>Categories - Category - lyk の tech blog</description>
         <generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="http://lyk.github.io/categories/" rel="self" type="application/rss+xml" /></channel>
 </rss>
