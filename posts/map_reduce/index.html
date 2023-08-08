@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <title>Map_reduce - lyk の tech blog</title><meta name="Description" content="呀，被发现了ʕ•ᴥ•ʔ，blog里有一些笔记"><meta property="og:title" content="Map_reduce" />
+<meta property="og:description" content="MIT 6.824 2020 lab1-MapReduce实现笔记 花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。
+以下是我的一些笔记，这门课不允许在网上公开代码，但是为了便于描述，我还是将一部分核心代码贴了出来。
+Master和Worker的定义 命名方式随意了点：）
+看变量名大概就能知道什么意思，需要补充的是，TaskStatus的Start表示未被分配，Processing表示有worker正在处理，而Done表示该任务已经完成。
+另外，Master会维持一个全局的global_phase变量，用来指示现在所处的阶段，lifetime是 MapPhase -&gt; ReducePhase -&gt; CompletedPhase。并通过维护done_cnt计数器来知晓现在完成的Map/Reduce Task的数量，在全部完成时，进行Phase的转换。
+type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( MapPhase Phase = iota ReducePhase CompletedPhase ) // TaskType const ( Map TaskType = iota Reduce Wait Exit ) // TaskStatus const ( Start TaskStatus = iota Processing Done ) type MapTask struct { // machine_id int NReduce int TaskId int InputFile string Status TaskStatus // iter_files []string Time time." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://lyk.github.io/posts/map_reduce/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2023-08-08T11:55:30+08:00" />
+<meta property="article:modified_time" content="2023-08-08T11:55:30+08:00" /><meta property="og:site_name" content="lyk 的笔记小站" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Map_reduce"/>
+<meta name="twitter:description" content="MIT 6.824 2020 lab1-MapReduce实现笔记 花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。
+以下是我的一些笔记，这门课不允许在网上公开代码，但是为了便于描述，我还是将一部分核心代码贴了出来。
+Master和Worker的定义 命名方式随意了点：）
+看变量名大概就能知道什么意思，需要补充的是，TaskStatus的Start表示未被分配，Processing表示有worker正在处理，而Done表示该任务已经完成。
+另外，Master会维持一个全局的global_phase变量，用来指示现在所处的阶段，lifetime是 MapPhase -&gt; ReducePhase -&gt; CompletedPhase。并通过维护done_cnt计数器来知晓现在完成的Map/Reduce Task的数量，在全部完成时，进行Phase的转换。
+type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( MapPhase Phase = iota ReducePhase CompletedPhase ) // TaskType const ( Map TaskType = iota Reduce Wait Exit ) // TaskStatus const ( Start TaskStatus = iota Processing Done ) type MapTask struct { // machine_id int NReduce int TaskId int InputFile string Status TaskStatus // iter_files []string Time time."/>
+<meta name="application-name" content="My cool site">
+<meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/map_reduce/" /><link rel="prev" href="http://lyk.github.io/posts/first_post/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "Map_reduce",
+        "inLanguage": "en-us",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "http:\/\/lyk.github.io\/posts\/map_reduce\/"
+        },"genre": "posts","wordcount":  578 ,
+        "url": "http:\/\/lyk.github.io\/posts\/map_reduce\/","datePublished": "2023-08-08T11:55:30+08:00","dateModified": "2023-08-08T11:55:30+08:00","publisher": {
+            "@type": "Organization",
+            "name": ""},"author": {
+                "@type": "Person",
+                "name": "Author"
+            },"description": ""
+    }
+    </script></head>
+    <body data-header-desktop="fixed" data-header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('auto' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'auto' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="lyk の tech blog">我的一些学习笔记</a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                    <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+                </a></div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="lyk の tech blog">我的一些学习笔记</a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+            </a></div>
+    </div>
+</header><main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">Contents</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">Map_reduce</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>Author</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-08">2023-08-08</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;578 words&nbsp;
+                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;3 minutes&nbsp;</div>
+        </div><div class="details toc" id="toc-static"  data-kept="">
+                <div class="details-summary toc-title">
+                    <span>Contents</span>
+                    <span><i class="details-icon fas fa-angle-right" aria-hidden="true"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#master和worker的定义">Master和Worker的定义</a></li>
+    <li><a href="#master实现">Master实现</a></li>
+    <li><a href="#worker主循环">Worker主循环</a></li>
+    <li><a href="#问题">问题</a></li>
+    <li><a href="#用到的资料">用到的资料</a></li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><h1 id="mit-6824-2020---lab1-mapreduce实现笔记">MIT 6.824 2020   lab1-MapReduce实现笔记</h1>
+<p>花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。</p>
+<p>以下是我的一些笔记，这门课不允许在网上公开代码，但是为了便于描述，我还是将一部分核心代码贴了出来。</p>
+<h2 id="master和worker的定义">Master和Worker的定义</h2>
+<p>命名方式随意了点：）</p>
+<p>看变量名大概就能知道什么意思，需要补充的是，TaskStatus的Start表示未被分配，Processing表示有worker正在处理，而Done表示该任务已经完成。</p>
+<p>另外，Master会维持一个全局的global_phase变量，用来指示现在所处的阶段，lifetime是 MapPhase -&gt; ReducePhase -&gt; CompletedPhase。并通过维护done_cnt计数器来知晓现在完成的Map/Reduce Task的数量，在全部完成时，进行Phase的转换。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">Phase</span> <span style="color:#66d9ef">int8</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TaskType</span> <span style="color:#66d9ef">int8</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TaskStatus</span> <span style="color:#66d9ef">int8</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// global phase
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> (
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">MapPhase</span> <span style="color:#a6e22e">Phase</span> = <span style="color:#66d9ef">iota</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">ReducePhase</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">CompletedPhase</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// TaskType
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> (
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Map</span> <span style="color:#a6e22e">TaskType</span> = <span style="color:#66d9ef">iota</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Reduce</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Wait</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Exit</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// TaskStatus
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> (
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Start</span> <span style="color:#a6e22e">TaskStatus</span> = <span style="color:#66d9ef">iota</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Processing</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Done</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">MapTask</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// machine_id int
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#a6e22e">NReduce</span>   <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">TaskId</span>    <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">InputFile</span> <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Status</span>    <span style="color:#a6e22e">TaskStatus</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// iter_files []string
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#a6e22e">Time</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Time</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">ReduceTask</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">TaskId</span>     <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">InputFiles</span> []<span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Status</span>     <span style="color:#a6e22e">TaskStatus</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Time</span>       <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Time</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">Task</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Task_type</span>   <span style="color:#a6e22e">TaskType</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Map_task</span>    <span style="color:#f92672">*</span><span style="color:#a6e22e">MapTask</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">Reduce_task</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">ReduceTask</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">Master</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// lifetime: MapPhase -&gt; ReducePhase -&gt; CompletedPhase
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#a6e22e">global_phase</span> <span style="color:#a6e22e">Phase</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// how many task has completed correctly
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#a6e22e">done_cnt</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mutex</span> <span style="color:#a6e22e">sync</span>.<span style="color:#a6e22e">Mutex</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// map task num &amp; reduce task num
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#a6e22e">map_task_num</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">n_reduce</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// map task array
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#a6e22e">map_tasks</span>    []<span style="color:#a6e22e">MapTask</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// reduce task array
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#a6e22e">reduce_tasks</span> []<span style="color:#a6e22e">ReduceTask</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h2 id="master实现">Master实现</h2>
+<p>Master主要就是被动接收一些rpc调用，维护状态，最核心的是GetTask rpc调用，worker调用这个来获取Task。</p>
+<p>逻辑也很简单，看代码就行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">m</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">Master</span>) <span style="color:#a6e22e">GetTask</span>(<span style="color:#a6e22e">args</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">ExampleArgs</span>, <span style="color:#a6e22e">task</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">Task</span>) <span style="color:#66d9ef">error</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">mutex</span>.<span style="color:#a6e22e">Lock</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">mutex</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">switch</span> <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">global_phase</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">case</span> <span style="color:#a6e22e">MapPhase</span>:
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">range</span> <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">map_tasks</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">map_task</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">map_tasks</span>[<span style="color:#a6e22e">i</span>]
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">map_task</span>.<span style="color:#a6e22e">Status</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">Start</span> {
+</span></span><span style="display:flex;"><span>				<span style="color:#75715e">// if there is available task to be done
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>				<span style="color:#a6e22e">map_task</span>.<span style="color:#a6e22e">Status</span> = <span style="color:#a6e22e">Processing</span>
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">map_task</span>.<span style="color:#a6e22e">Time</span> = <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Now</span>()
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Task_type</span> = <span style="color:#a6e22e">Map</span>
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Map_task</span> = <span style="color:#a6e22e">map_task</span>
+</span></span><span style="display:flex;"><span>				<span style="color:#75715e">// fmt.Printf(&#34;%+v \n&#34;, task.Map_task)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>				<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// if all tasks are done or are processing , just let it wait
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>		<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Task_type</span> = <span style="color:#a6e22e">Wait</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">case</span> <span style="color:#a6e22e">ReducePhase</span>:
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// fmt.Printf(&#34;%+v &#34;, m.reduce_tasks)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>		<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">range</span> <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">reduce_tasks</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">reduce_task</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">reduce_tasks</span>[<span style="color:#a6e22e">i</span>]
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">reduce_task</span>.<span style="color:#a6e22e">Status</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">Start</span> {
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">reduce_task</span>.<span style="color:#a6e22e">Status</span> = <span style="color:#a6e22e">Processing</span>
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Task_type</span> = <span style="color:#a6e22e">Reduce</span>
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Reduce_task</span> = <span style="color:#a6e22e">reduce_task</span>
+</span></span><span style="display:flex;"><span>				<span style="color:#75715e">// fmt.Printf(&#34;%+v &#34;, task.Reduce_task)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>				<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Task_type</span> = <span style="color:#a6e22e">Wait</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">case</span> <span style="color:#a6e22e">CompletedPhase</span>:
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Task_type</span> = <span style="color:#a6e22e">Exit</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	panic(<span style="color:#e6db74">&#34;Unreachable&#34;</span>)
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>另外TaskDone（更新done_cnt, 判断是否需要进行global_phase的阶段切换）、UpdateTime(接收心跳信息，更新对应task的Time字段)。</p>
+<p>值得注意的是，这里我在设计上，将心跳信号与任务进行了绑定（而不是worker)，且只有处于Processing阶段的任务才有心跳。语义上可以理解为属于正在被处理的任务的心跳。检测心跳的代码也贴出来吧，这里我设置的每5s检测一次，判定超时时间也为5s（worker每2s发送一次心跳，所以这里允许有3s的延迟）。当然，这些参数都是我随意设的。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">go</span> <span style="color:#66d9ef">func</span>() {
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Sleep</span>(<span style="color:#ae81ff">5</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Second</span>)
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">mutex</span>.<span style="color:#a6e22e">Lock</span>()
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">global_phase</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">MapPhase</span> {
+</span></span><span style="display:flex;"><span>         <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">range</span> <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">map_tasks</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">map_task</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">map_tasks</span>[<span style="color:#a6e22e">i</span>]
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// fmt.Printf(&#34;time check:%d %d %s\n&#34;, i, map_task.Status, time.Now().Sub(map_task.Time).String())
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">map_task</span>.<span style="color:#a6e22e">Status</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">Processing</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Now</span>().<span style="color:#a6e22e">Sub</span>(<span style="color:#a6e22e">map_task</span>.<span style="color:#a6e22e">Time</span>) &gt; <span style="color:#ae81ff">5</span><span style="color:#f92672">*</span><span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Second</span> {
+</span></span><span style="display:flex;"><span>               <span style="color:#75715e">// if timeout, reset status to Start
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>               <span style="color:#a6e22e">map_task</span>.<span style="color:#a6e22e">Status</span> = <span style="color:#a6e22e">Start</span>
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>         }
+</span></span><span style="display:flex;"><span>      } <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">global_phase</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">ReducePhase</span> {
+</span></span><span style="display:flex;"><span>         <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">range</span> <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">reduce_tasks</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">reduce_task</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">reduce_tasks</span>[<span style="color:#a6e22e">i</span>]
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">reduce_task</span>.<span style="color:#a6e22e">Status</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">Processing</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Now</span>().<span style="color:#a6e22e">Sub</span>(<span style="color:#a6e22e">reduce_task</span>.<span style="color:#a6e22e">Time</span>) &gt; <span style="color:#ae81ff">5</span><span style="color:#f92672">*</span><span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Second</span> {
+</span></span><span style="display:flex;"><span>               <span style="color:#a6e22e">reduce_task</span>.<span style="color:#a6e22e">Status</span> = <span style="color:#a6e22e">Start</span>
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>         }
+</span></span><span style="display:flex;"><span>      } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>         <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">mutex</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>         <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">mutex</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>   }
+</span></span><span style="display:flex;"><span>}()
+</span></span></code></pre></div><h2 id="worker主循环">Worker主循环</h2>
+<p>Worker的主循环如下，其中fetch task是用rpc从master获取任务task, 并根据task的类型进行分类处理。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#75715e">//
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// main/mrworker.go calls this function.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">//
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">Worker</span>(<span style="color:#a6e22e">mapf</span> <span style="color:#66d9ef">func</span>(<span style="color:#66d9ef">string</span>, <span style="color:#66d9ef">string</span>) []<span style="color:#a6e22e">KeyValue</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">reducef</span> <span style="color:#66d9ef">func</span>(<span style="color:#66d9ef">string</span>, []<span style="color:#66d9ef">string</span>) <span style="color:#66d9ef">string</span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// main loop
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">task</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">fetch_task</span>()
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// fmt.Printf(&#34;%+v \n&#34;, task)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>		<span style="color:#66d9ef">switch</span> <span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Task_type</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">case</span> <span style="color:#a6e22e">Map</span>:
+</span></span><span style="display:flex;"><span>			<span style="color:#75715e">// start send heartbeat
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>			<span style="color:#a6e22e">quit</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">send_heart_beat</span>(<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Map_task</span>.<span style="color:#a6e22e">TaskId</span>, <span style="color:#a6e22e">Map</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#75715e">// do map work
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>			<span style="color:#a6e22e">err</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">handle_map_task</span>(<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Map_task</span>, <span style="color:#a6e22e">mapf</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">err</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">nil</span> {
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">mes</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">DoneMessage</span>{
+</span></span><span style="display:flex;"><span>					<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Map_task</span>.<span style="color:#a6e22e">TaskId</span>,
+</span></span><span style="display:flex;"><span>					<span style="color:#a6e22e">Map</span>,
+</span></span><span style="display:flex;"><span>				}
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">call</span>(<span style="color:#e6db74">&#34;Master.TaskDone&#34;</span>, <span style="color:#a6e22e">mes</span>, <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">ExampleReply</span>{})
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Printf</span>(<span style="color:#e6db74">&#34;Map %d done by %d\n&#34;</span>, <span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Map_task</span>.<span style="color:#a6e22e">TaskId</span>, <span style="color:#a6e22e">os</span>.<span style="color:#a6e22e">Getpid</span>())
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>			<span style="color:#75715e">// stop send heartbeat
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>			<span style="color:#a6e22e">quit</span> <span style="color:#f92672">&lt;-</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">case</span> <span style="color:#a6e22e">Reduce</span>:
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">quit</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">send_heart_beat</span>(<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Reduce_task</span>.<span style="color:#a6e22e">TaskId</span>, <span style="color:#a6e22e">Reduce</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#75715e">// do reduce work
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>			<span style="color:#a6e22e">err</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">handle_reduce_task</span>(<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Reduce_task</span>, <span style="color:#a6e22e">reducef</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">err</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">nil</span> {
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">mes</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">DoneMessage</span>{
+</span></span><span style="display:flex;"><span>					<span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Reduce_task</span>.<span style="color:#a6e22e">TaskId</span>,
+</span></span><span style="display:flex;"><span>					<span style="color:#a6e22e">Reduce</span>,
+</span></span><span style="display:flex;"><span>				}
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">call</span>(<span style="color:#e6db74">&#34;Master.TaskDone&#34;</span>, <span style="color:#a6e22e">mes</span>, <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">ExampleReply</span>{})
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Printf</span>(<span style="color:#e6db74">&#34;Reduce %d done by %d\n&#34;</span>, <span style="color:#a6e22e">task</span>.<span style="color:#a6e22e">Reduce_task</span>.<span style="color:#a6e22e">TaskId</span>, <span style="color:#a6e22e">os</span>.<span style="color:#a6e22e">Getpid</span>())
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">quit</span> <span style="color:#f92672">&lt;-</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">case</span> <span style="color:#a6e22e">Wait</span>:
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Sleep</span>(<span style="color:#ae81ff">1</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Second</span>)
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">case</span> <span style="color:#a6e22e">Exit</span>:
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>对于Map和Reduce这两种工作，在接收到任务时，需要开始向master提供心跳，我具体设计的是2s发送一次；在Map/Reduce任务完成或者异常退出时，需要终止心跳的发送。我是将发送心跳的过程用goroutine来实现的，通过channel来判断什么时候退出。具体函数如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">send_heart_beat</span>(<span style="color:#a6e22e">task_id</span> <span style="color:#66d9ef">int</span>, <span style="color:#a6e22e">task_type</span> <span style="color:#a6e22e">TaskType</span>) <span style="color:#66d9ef">chan</span><span style="color:#f92672">&lt;-</span> <span style="color:#66d9ef">bool</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">quit</span> <span style="color:#f92672">:=</span> make(<span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">bool</span>)
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">go</span> <span style="color:#66d9ef">func</span>() {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">select</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">case</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">quit</span>:
+</span></span><span style="display:flex;"><span>				<span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">default</span>:
+</span></span><span style="display:flex;"><span>				<span style="color:#75715e">// Do other stuff
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>				<span style="color:#a6e22e">mes</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">HeartBeatMessage</span>{<span style="color:#a6e22e">task_id</span>, <span style="color:#a6e22e">task_type</span>}
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">reply</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">ExampleReply</span>{}
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">call</span>(<span style="color:#e6db74">&#34;Master.UpdateTime&#34;</span>, <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">mes</span>, <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">reply</span>)
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Sleep</span>(<span style="color:#ae81ff">2</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Second</span>)
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}()
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">quit</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>另外这里除了Map和Reduce两种主要的task类型，还有Sleep（在MapPhase/ReducePhase阶段，没有空闲任务时，worker会fetch到wait类型的任务，相当于等待其他正在进行的Map/Reduce任务完成）。而在CompletedPhase阶段，即所有的工作都完成后，worker会从master fetch到一个Exit类型的task，直接退出进程。</p>
+<h2 id="问题">问题</h2>
+<p>能通过所有测例。包括wc、indexer等app和故障恢复。</p>
+<p>但是我调整了测试脚本里的超时参数，但是不知道为什么设置3分钟的运行时间会超时：</p>
+<p><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230808113901483.png"
+        data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230808113901483.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230808113901483.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230808113901483.png 2x"
+        data-sizes="auto"
+        alt="C:\Users\lyk\AppData\Roaming\Typora\typora-user-images\image-20230808113901483.png"
+        title="image-20230808113901483" /></p>
+<p>是在wsl+Ubuntu+/mnt到windows的桌面上运行的，是运行环境的原因吗？</p>
+<h2 id="用到的资料">用到的资料</h2>
+<p><a href="http://nil.csail.mit.edu/6.824/2020/labs/lab-mr.html" target="_blank" rel="noopener noreffer ">http://nil.csail.mit.edu/6.824/2020/labs/lab-mr.html</a></p>
+<p><a href="https://zhuanlan.zhihu.com/p/264346586" target="_blank" rel="noopener noreffer ">一篇教会你写90%的shell脚本 - 知乎</a></p>
+<p><a href="http://blog.mrcroxx.com/posts/paper-reading/mapreduce-osdi04/#%E4%BD%9C%E8%80%85" target="_blank" rel="noopener noreffer ">MapReduce论文翻译</a></p>
+</div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>Updated on 2023-08-08</span>
+            </div></div>
+        <div class="post-info-line">
+            <div class="post-info-md"></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/map_reduce/" data-title="Map_reduce"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/map_reduce/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/map_reduce/" data-title="Map_reduce"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/map_reduce/" data-title="Map_reduce"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/map_reduce/" data-title="Map_reduce"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/posts/first_post/" class="prev" rel="prev" title="First_post"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>First_post</a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.111.3">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2023</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="Back to Top">
+                <i class="fas fa-arrow-up fa-fw" aria-hidden="true"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
+                <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>
