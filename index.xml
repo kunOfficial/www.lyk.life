@@ -6,7 +6,7 @@
         <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Tue, 08 Aug 2023 11:55:30 &#43;0800</lastBuildDate>
             <atom:link href="http://lyk.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
-    <title>Map_reduce</title>
+    <title>MIT 6.824 2020   lab1-MapReduce实现笔记</title>
     <link>http://lyk.github.io/posts/map_reduce/</link>
     <pubDate>Tue, 08 Aug 2023 11:55:30 &#43;0800</pubDate>
     <author>Author</author>
