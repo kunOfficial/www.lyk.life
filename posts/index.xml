@@ -3,11 +3,22 @@
         <title>All Posts - lyk の tech blog</title>
         <link>http://lyk.github.io/posts/</link>
         <description>All Posts | lyk の tech blog</description>
-        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Tue, 08 Aug 2023 11:55:30 &#43;0800</lastBuildDate><atom:link href="http://lyk.github.io/posts/" rel="self" type="application/rss+xml" /><item>
+        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Wed, 09 Aug 2023 15:29:40 &#43;0800</lastBuildDate><atom:link href="http://lyk.github.io/posts/" rel="self" type="application/rss+xml" /><item>
+    <title>CMU15-445 (2022fall) project笔记</title>
+    <link>http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/</link>
+    <pubDate>Wed, 09 Aug 2023 15:29:40 &#43;0800</pubDate>
+    <author>lyk</author>
+    <guid>http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/</guid>
+    <description><![CDATA[数据库系统实现技术大作业 这是CMU 15-445 2022fall 的配套项目 bustub 2022fall，也是《数据库系统实现技术》这门选修课的大作业。这里简单记录一下作业的思路。（不过最后一个transaction manager还有些bug, 所以没有形成笔记，之后补上）
+Project #0 - C++ Primer 这个项目是做一个简单的Trie树，不属于bustub的主体部分，实现起来也很简单。核心数据结构就是TrieNode, 表示树中的一个顶点，is_end_成员表示该单词是否结束。整体没啥难的。
+class TrieNode{ protected: char key_char_; /** whether this node marks the end of a key */ bool is_end_{false}; /** A map of all child nodes of this trie node, which can be accessed by each * child node&#39;s key char. */ std::unordered_map&lt;char, std::unique_ptr&lt;TrieNode&gt;&gt; children_; } 主要是熟悉C++以及bustub的编码风格，以及一些工具的使用，包括用CMake\Make构建项目、用Clang-tidy来优化编码风格、用GDB来debug、用第三方库GoogleTest来进行单例测试等。
+Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分了。目标就是实现一个Buffer Pool Manager, 分成了3个小任务。]]></description>
+</item>
+<item>
     <title>MIT 6.824 2020   lab1-MapReduce实现笔记</title>
     <link>http://lyk.github.io/posts/map_reduce/</link>
     <pubDate>Tue, 08 Aug 2023 11:55:30 &#43;0800</pubDate>
-    <author>Author</author>
+    <author>lyk</author>
     <guid>http://lyk.github.io/posts/map_reduce/</guid>
     <description><![CDATA[MIT 6.824 2020 lab1-MapReduce实现笔记 花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。
 以下是我的一些笔记，这门课不允许在网上公开代码，但是为了便于描述，我还是将一部分核心代码贴了出来。
@@ -20,7 +31,7 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
     <title>First_post</title>
     <link>http://lyk.github.io/posts/first_post/</link>
     <pubDate>Tue, 21 Mar 2023 16:06:40 &#43;0800</pubDate>
-    <author>Author</author>
+    <author>lyk</author>
     <guid>http://lyk.github.io/posts/first_post/</guid>
     <description><![CDATA[hello world!
 打算开始写博客啦]]></description>

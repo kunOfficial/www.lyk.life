@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <title>CMU15-445 (2022fall) project笔记 - lyk の tech blog</title><meta name="Description" content="呀，被发现了ʕ•ᴥ•ʔ，blog里有一些笔记"><meta property="og:title" content="CMU15-445 (2022fall) project笔记" />
+<meta property="og:description" content="数据库系统实现技术大作业 这是CMU 15-445 2022fall 的配套项目 bustub 2022fall，也是《数据库系统实现技术》这门选修课的大作业。这里简单记录一下作业的思路。（不过最后一个transaction manager还有些bug, 所以没有形成笔记，之后补上）
+Project #0 - C&#43;&#43; Primer 这个项目是做一个简单的Trie树，不属于bustub的主体部分，实现起来也很简单。核心数据结构就是TrieNode, 表示树中的一个顶点，is_end_成员表示该单词是否结束。整体没啥难的。
+class TrieNode{ protected: char key_char_; /** whether this node marks the end of a key */ bool is_end_{false}; /** A map of all child nodes of this trie node, which can be accessed by each * child node&#39;s key char. */ std::unordered_map&lt;char, std::unique_ptr&lt;TrieNode&gt;&gt; children_; } 主要是熟悉C&#43;&#43;以及bustub的编码风格，以及一些工具的使用，包括用CMake\Make构建项目、用Clang-tidy来优化编码风格、用GDB来debug、用第三方库GoogleTest来进行单例测试等。
+Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分了。目标就是实现一个Buffer Pool Manager, 分成了3个小任务。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2023-08-09T15:29:40+08:00" />
+<meta property="article:modified_time" content="2023-08-09T15:29:40+08:00" /><meta property="og:site_name" content="lyk 的笔记小站" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="CMU15-445 (2022fall) project笔记"/>
+<meta name="twitter:description" content="数据库系统实现技术大作业 这是CMU 15-445 2022fall 的配套项目 bustub 2022fall，也是《数据库系统实现技术》这门选修课的大作业。这里简单记录一下作业的思路。（不过最后一个transaction manager还有些bug, 所以没有形成笔记，之后补上）
+Project #0 - C&#43;&#43; Primer 这个项目是做一个简单的Trie树，不属于bustub的主体部分，实现起来也很简单。核心数据结构就是TrieNode, 表示树中的一个顶点，is_end_成员表示该单词是否结束。整体没啥难的。
+class TrieNode{ protected: char key_char_; /** whether this node marks the end of a key */ bool is_end_{false}; /** A map of all child nodes of this trie node, which can be accessed by each * child node&#39;s key char. */ std::unordered_map&lt;char, std::unique_ptr&lt;TrieNode&gt;&gt; children_; } 主要是熟悉C&#43;&#43;以及bustub的编码风格，以及一些工具的使用，包括用CMake\Make构建项目、用Clang-tidy来优化编码风格、用GDB来debug、用第三方库GoogleTest来进行单例测试等。
+Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分了。目标就是实现一个Buffer Pool Manager, 分成了3个小任务。"/>
+<meta name="application-name" content="My cool site">
+<meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/" /><link rel="prev" href="http://lyk.github.io/posts/map_reduce/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "CMU15-445 (2022fall) project笔记",
+        "inLanguage": "en-us",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "http:\/\/lyk.github.io\/posts\/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0\/"
+        },"genre": "posts","wordcount":  609 ,
+        "url": "http:\/\/lyk.github.io\/posts\/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0\/","datePublished": "2023-08-09T15:29:40+08:00","dateModified": "2023-08-09T15:29:40+08:00","publisher": {
+            "@type": "Organization",
+            "name": ""},"author": {
+                "@type": "Person",
+                "name": "lyk"
+            },"description": ""
+    }
+    </script></head>
+    <body data-header-desktop="fixed" data-header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('auto' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'auto' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="lyk の tech blog">lyk的学习笔记</a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                    <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+                </a></div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="lyk の tech blog">lyk的学习笔记</a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+            </a></div>
+    </div>
+</header><main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">Contents</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">CMU15-445 (2022fall) project笔记</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-09">2023-08-09</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;609 words&nbsp;
+                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;3 minutes&nbsp;</div>
+        </div><div class="details toc" id="toc-static"  data-kept="">
+                <div class="details-summary toc-title">
+                    <span>Contents</span>
+                    <span><i class="details-icon fas fa-angle-right" aria-hidden="true"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#project-0---c-primer">Project #0 - C++ Primer</a></li>
+    <li><a href="#project-1---buffer-pool">Project #1 - Buffer Pool</a>
+      <ul>
+        <li><a href="#task-1-extendible-hash-table">Task #1 Extendible Hash Table</a></li>
+        <li><a href="#task-2---lru-k-replacement-policy">Task #2   LRU-K Replacement Policy</a></li>
+        <li><a href="#task-3-buffer-pool-manager">Task #3 Buffer Pool Manager</a></li>
+      </ul>
+    </li>
+    <li><a href="#project-2---btree">Project #2 - B+Tree</a>
+      <ul>
+        <li><a href="#task-1---btree-pages">Task #1 - B+Tree Pages</a></li>
+        <li><a href="#task-2---btree-data-structure">Task #2 - B+Tree Data Structure</a></li>
+        <li><a href="#task-3---index-iterator">Task #3 - Index Iterator</a></li>
+        <li><a href="#task-4---concurrent-index">Task #4 - Concurrent Index</a></li>
+      </ul>
+    </li>
+    <li><a href="#project-3---query-execution">Project #3 - Query Execution</a>
+      <ul>
+        <li><a href="#task-1---access-method-executors">Task #1 - Access Method Executors</a></li>
+        <li><a href="#task-2---aggregation--join-executors">Task #2 - Aggregation &amp; Join Executors</a></li>
+        <li><a href="#task-3---sort--limit-executors-and-top-n-optimization">Task #3 - Sort + Limit Executors and Top-N Optimization</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><h1 id="数据库系统实现技术大作业">数据库系统实现技术大作业</h1>
+<p>这是CMU 15-445 2022fall 的配套项目 bustub 2022fall，也是《数据库系统实现技术》这门选修课的大作业。这里简单记录一下作业的思路。（不过最后一个transaction manager还有些bug, 所以没有形成笔记，之后补上）</p>
+<h2 id="project-0---c-primer">Project #0 - C++ Primer</h2>
+<p>这个项目是做一个简单的Trie树，不属于bustub的主体部分，实现起来也很简单。核心数据结构就是TrieNode, 表示树中的一个顶点，is_end_成员表示该单词是否结束。整体没啥难的。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>  <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TrieNode</span>{
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">protected</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">char</span> key_char_;
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">/** whether this node marks the end of a key */</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">bool</span> is_end_{false};
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">/** A map of all child nodes of this trie node, which can be accessed by each
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">       * child node&#39;s key char. */</span>
+</span></span><span style="display:flex;"><span>      std<span style="color:#f92672">::</span>unordered_map<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">char</span>, std<span style="color:#f92672">::</span>unique_ptr<span style="color:#f92672">&lt;</span>TrieNode<span style="color:#f92672">&gt;&gt;</span> children_;
+</span></span><span style="display:flex;"><span>  }
+</span></span></code></pre></div><p>主要是熟悉C++以及bustub的编码风格，以及一些工具的使用，包括用CMake\Make构建项目、用Clang-tidy来优化编码风格、用GDB来debug、用第三方库GoogleTest来进行单例测试等。</p>
+<h2 id="project-1---buffer-pool">Project #1 - Buffer Pool</h2>
+<p>从这个部分开始，就进入Bustub的主体部分了。目标就是实现一个Buffer Pool Manager, 分成了3个小任务。</p>
+<h3 id="task-1-extendible-hash-table">Task #1 Extendible Hash Table</h3>
+<p>这一部分是实现一个可扩展哈希表, 所谓可扩展，就是避免传统哈希表的rehash的开销(rehash就是传统的不可扩展的哈希表的加载因子比较高的时候，会进行扩容+rehash来减少冲突，开销很大）。</p>
+<p>核心思想是在冲突较大的时候，即bucket满的时候，对bucket进行分裂, 且分裂时只涉及哈希表中相关指针（指向该桶的元素）进行修改，而不需要对其他元素的进行重排。另外，当local_depth （将要）大于 global_depth时需要对哈希表进行扩容，但是这个扩容不需要rehash, 只是指针的简单复制而已。</p>
+<p>不得不说，这是一个非常巧妙的数据结构。</p>
+<p>为了保证并发安全，我设计了以下三种的锁来保证并发安全，都是shared_mutex，即读写锁，提高并发性能。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>  <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ExtendibleHashTable</span> <span style="color:#f92672">:</span> <span style="color:#66d9ef">public</span> HashTable<span style="color:#f92672">&lt;</span>K, V<span style="color:#f92672">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">mutable</span> std<span style="color:#f92672">::</span>shared_mutex global_depth_latch_; <span style="color:#75715e">// 保护global_depth_
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">mutable</span> std<span style="color:#f92672">::</span>shared_mutex dir_latch_;	<span style="color:#75715e">// 保护哈希表vector
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Bucket</span> {
+</span></span><span style="display:flex;"><span>        std<span style="color:#f92672">::</span>shared_mutex bucket_latch_; <span style="color:#75715e">// 桶级别的锁，保护桶里面成员变量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span></code></pre></div><h3 id="task-2---lru-k-replacement-policy">Task #2   LRU-K Replacement Policy</h3>
+<p>这一部分是实现一个LRU-K replacer, 与LRU相同点和不同点在于：当一个page被访问了k次以下时，表现和LRU一致；而当一个page被访问了k次及以上后，就会根据第k次前的时间戳进行淘汰。</p>
+<p>在设计时，我采用了HashMap+双向链表的方法来存储历史访问记录，链表在逻辑上以访问次数为k分为两个队列，我将这两个队列统一在了一个链表中，中间通过一个叫做特殊的KTailNode的节点分割开（我也不知道当时为什么我要将两个队列统一在一个链表里，现在想来完全没有必要）。</p>
+<p>LRUKReplacer成员变量如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">LRUKReplacer</span> {
+</span></span><span style="display:flex;"><span>  std<span style="color:#f92672">::</span>atomic<span style="color:#f92672">&lt;</span>size_t<span style="color:#f92672">&gt;</span> current_timestamp_{<span style="color:#ae81ff">0</span>};
+</span></span><span style="display:flex;"><span>  std<span style="color:#f92672">::</span>atomic<span style="color:#f92672">&lt;</span>size_t<span style="color:#f92672">&gt;</span> curr_size_{<span style="color:#ae81ff">0</span>};
+</span></span><span style="display:flex;"><span>  size_t k_;
+</span></span><span style="display:flex;"><span>  std<span style="color:#f92672">::</span>unordered_map<span style="color:#f92672">&lt;</span>frame_id_t, DListNode <span style="color:#f92672">*&gt;</span> map_;
+</span></span><span style="display:flex;"><span>  DListNode <span style="color:#f92672">*</span>head_, <span style="color:#f92672">*</span>tail_;
+</span></span><span style="display:flex;"><span>  DListNode <span style="color:#f92672">*</span>k_tail_;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">mutable</span> std<span style="color:#f92672">::</span>shared_mutex map_latch_; <span style="color:#75715e">// 保护map_
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">mutable</span> std<span style="color:#f92672">::</span>shared_mutex nodes_latch_; <span style="color:#75715e">// 保护双向链表
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>另外，每次调用LRUKReplacer的Access方法时，都会使current_timestamp_++；DListNode有个evictable_ 成员变量，用来标识是否可evict。</p>
+<p>其实我个人对LRU-K replacement的实际效果存疑，因为LRU-K相比LRU-K的优势在于能够防止偶发性的、周期性的批量操作会导致LRU命中率急剧下降的问题，但我认为LRU-k的开销实际上是很大的，特别是对访问次数大于k的队列中的节点，理论上每次访问的时间复杂度为O(n), 相比LRU O(1)的开销来说很大。另外，”缓存污染“其实可以通过By-pass来绕过buffer pool manager, 不进行缓存即可。</p>
+<h3 id="task-3-buffer-pool-manager">Task #3 Buffer Pool Manager</h3>
+<p>这一步就是利用基于extendible hashmap的页表和lru-k replacer来着手构建BPM了。BPM重要的成员函数摘录如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">BufferPoolManagerInstance</span> <span style="color:#f92672">:</span> <span style="color:#66d9ef">public</span> BufferPoolManager {
+</span></span><span style="display:flex;"><span>    ExtendibleHashTable<span style="color:#f92672">&lt;</span>page_id_t, frame_id_t<span style="color:#f92672">&gt;</span> <span style="color:#f92672">*</span>page_table_;
+</span></span><span style="display:flex;"><span>    LRUKReplacer <span style="color:#f92672">*</span>replacer_;
+</span></span><span style="display:flex;"><span>    std<span style="color:#f92672">::</span>list<span style="color:#f92672">&lt;</span>frame_id_t<span style="color:#f92672">&gt;</span> free_list_;
+</span></span><span style="display:flex;"><span>    std<span style="color:#f92672">::</span>shared_mutex latch_;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>页表page_table_是用来存储page_id到frame_id的映射的，free_list_ 则是保存空闲的frame_id。具体来说，需要查找page_id页时，首先通过页表查找是否在缓冲区中。如果在的话，则为缓冲命中，否则需要通过DishManager从磁盘调入到内存中，如果free_list非空，则直接从free_list里得到frame_id, 否则需要通过lru-k replacer来决定evict的page，如果dirty，还需要阻塞（这里可能可以优化为多线程写入），将脏页同步到磁盘。</p>
+<p>另外，FetchPage时会将page的pin_count++, Unpin时会将pin_count&ndash;，当pin_count=0是说明没有事务在使用这个page，此时就可以通过设replacer中该page为evictable=true。</p>
+<p>并发方面，我一开始是设计了free_list_latch、page_table_latch_以及page自带的latch来进行控制的，在锁page之后立马释放page_table_latch,从而提高性能，花了很多时间实现后在gradescoped上拿了满分，可惜在之后的B+tree index的实验中出现了难以解决的死锁问题，没办法改为了“一把大锁保平安”的方式。（注：我发现好像这个死锁是可以解决的，回头再改回来试试）</p>
+<h2 id="project-2---btree">Project #2 - B+Tree</h2>
+<h3 id="task-1---btree-pages">Task #1 - B+Tree Pages</h3>
+<p>实现Internal Page（BPlusTreeInternalPage）和Leaf Page（BPlusTreeLeafPage)的一些简单成员方法，没有什么好说的。注：Internal Page和Leaf Page都是继承自BPlusTreePage，而不是Page。Page的Data字段实际上就是存储BPlusTreePage，这里BUSTUB_PAGE_SIZE = 4096 也就是4K:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Page</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">char</span> data_[BUSTUB_PAGE_SIZE];
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>其实利用BPM Fetch出来的是一个Page，需要通过reinterpret_cast&lt;&gt;(page-&gt;Data())才能得到BPlusTreeInternalPage或者BPlusTreeLeafPage，另外，这两个Page有自己的Header，格式不一样，LeafPage Header如下，InternalPage Header与之相比，少了NextPageId这一属性。</p>
+<pre tabindex="0"><code> *  Header format (size in byte, 28 bytes in total):
+ *  ---------------------------------------------------------------------
+ * | PageType (4) | LSN (4) | CurrentSize (4) | MaxSize (4) |
+ *  ---------------------------------------------------------------------
+ *  -----------------------------------------------
+ * | ParentPageId (4) | PageId (4) | NextPageId (4)
+ *  -----------------------------------------------
+</code></pre><p>对应着BPlusTreePage的成员变量：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">BPlusTreePage</span> {
+</span></span><span style="display:flex;"><span>  IndexPageType page_type_ <span style="color:#a6e22e">__attribute__</span>((__unused__));
+</span></span><span style="display:flex;"><span>  lsn_t lsn_ <span style="color:#a6e22e">__attribute__</span>((__unused__));
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> size_ <span style="color:#a6e22e">__attribute__</span>((__unused__));
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> max_size_ <span style="color:#a6e22e">__attribute__</span>((__unused__));
+</span></span><span style="display:flex;"><span>  page_id_t parent_page_id_ <span style="color:#a6e22e">__attribute__</span>((__unused__));
+</span></span><span style="display:flex;"><span>  page_id_t page_id_ <span style="color:#a6e22e">__attribute__</span>((__unused__));
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>声明顺序不能改变，不然会reinterpret_cast的结果是错的。</p>
+<h3 id="task-2---btree-data-structure">Task #2 - B+Tree Data Structure</h3>
+<p>目标是实现B+树索引。</p>
+<p>insert时，叶子结点和内部节点的分裂的条件有所不同，具体来说，如果插入后叶子结点大于等于maxSize,则节点分裂；如果插入前内部节点前已经大于等于maxSize了，则内部节点需要先分裂，再插入。这样的结果是叶子节点大小能控制在小于等于maxSize-1，而内部节点小于maxSize，为什么这样设计呢？其实我没有想清楚。</p>
+<p>remove时，如果remove后节点的size小于minSize了，就需要向邻居节点借一个元素，如果邻居节点的元素也不够，则需要进行合并。先考虑是否能借元素的原因是：如果可以通过借元素来满足size限制，那么借完后就只需要对parent_page的对应key进行更新即可；而合并元素的话，会需要删除parent_page的对应key,开销较大（包括移动元素，以及可能导致parent_page的size约束也不满足）等。</p>
+<p>关于remove的这一点我是在实现之后反思的过程中才想明白的，我的实现是优先上左边的邻居，如果左边的邻居存在，则向它借或者合并；否则和左邻居借或者合并。这点需要之后改进。</p>
+<p>注：这里的左右邻居的前提是同属同一个parent_page的child。</p>
+<h3 id="task-3---index-iterator">Task #3 - Index Iterator</h3>
+<p>实现一个用于遍历B+树索引的迭代器。思路就是由迭代器维护一个Page* 和此时读到数组下标索引，如果索引&gt;=MaxSize了，就通过BPM取下一个Page，如此往复，直到next_page_id= INVALID_PAGE_ID。</p>
+<p>对于最后一个Page什么时候UnPin的问题，可以放到析构函数里来解决：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>INDEXITERATOR_TYPE<span style="color:#f92672">::~</span>IndexIterator() {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (page_ <span style="color:#f92672">==</span> <span style="color:#66d9ef">nullptr</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  bpm_<span style="color:#f92672">-&gt;</span>UnpinPage(page_<span style="color:#f92672">-&gt;</span>GetPageId(), false);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="task-4---concurrent-index">Task #4 - Concurrent Index</h3>
+<p>这个任务是实现基于Latch Crabbing的B+树并发访问，感觉难度很大。</p>
+<p>思路是在insert或者remove时，获取路径上的节点的写锁，但latch crabbing指出，我们其实不需要一直锁着搜索路径上的节点，而是在“确定该节点一定不会修改”某节点时，及时释放上面的锁。</p>
+<p>对于insert来说，如果确定子节点不会分裂，则可以释放锁；对于remove来说，如果确定子节点不会借元素或者合并，则可以释放锁。锁是通过Transaction来记录的。</p>
+<p>这里有个隐蔽的问题卡了我很久很久，老是有测例会出现data race的情况。原因是我在remove的borrow或者merge访问邻居节点时，故意没有对邻居节点加锁，因为我认为如果一个节点需要borrow或者merge,那我们一定会持有parent page的锁，那么后来的请求一定是无法访问parent page的子树的，包括邻居节点。但后来我发现这是有问题的，因为这个锁只能保证后来的请求不能访问，但是之前的请求可能还在访问这个节点！所以如果不加锁，就会产生data race。</p>
+<p>Latch Crabbing由于保证了从上到下获取锁，所以是无死锁的。</p>
+<p>特别需要注意的一点是，FetchPage需要在Page-&gt;WLock()前进行，UnpinPage需要在在Page-&gt;WUnlock()后进行。</p>
+<h2 id="project-3---query-execution">Project #3 - Query Execution</h2>
+<p>该项目是为每个PlanNode实现对应的执行器，执行需要的所有信息都保存在了PlanNode中，然后通过ExecutorContext来获取事务（暂时未涉及）、catalog的背景信息。</p>
+<p>这些都是按照火山模型实现。</p>
+<h3 id="task-1---access-method-executors">Task #1 - Access Method Executors</h3>
+<p>实现SeqScan、IndexScan、Insert、Delete执行器。</p>
+<p>SeqScan是通过从获取TableIterator，从头遍历到尾，同时还要通过filter来进行条件判断。IndexScan类似，不过是通过索引顺序遍历</p>
+<p>Insert和Delete我维护了一个called_time,保证一次Next之后都返回false。另外，还需要维护相关索引。</p>
+<h3 id="task-2---aggregation--join-executors">Task #2 - Aggregation &amp; Join Executors</h3>
+<p>AggregationExcutor是一个阻塞的执行器，通过一哈希表来对元组进行聚合，具体来说，根据group_bys_进行分类，而groups_by_ 是一个vector<!-- raw HTML omitted --> 。对于一个元组来说，计算得到groups_bys_ 的vector<!-- raw HTML omitted -->结果后，通过combine Hash可以得到最终的hash, 将此hash作为key, 再计算aggragates_（vector<!-- raw HTML omitted -->)作为value, 保存在哈希表中。核心的数据结构如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">AggregateKey</span> {
+</span></span><span style="display:flex;"><span>  std<span style="color:#f92672">::</span>vector<span style="color:#f92672">&lt;</span>Value<span style="color:#f92672">&gt;</span> group_bys_; 
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// override == for aggregateKey, for hash table
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">auto</span> <span style="color:#66d9ef">operator</span><span style="color:#f92672">==</span>(<span style="color:#66d9ef">const</span> AggregateKey <span style="color:#f92672">&amp;</span>other) <span style="color:#66d9ef">const</span> <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">bool</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">uint32_t</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> other.group_bys_.size(); i<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (group_bys_[i].CompareEquals(other.group_bys_[i]) <span style="color:#f92672">!=</span> CmpBool<span style="color:#f92672">::</span>CmpTrue) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> false;
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> true;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">AggregateValue</span> {
+</span></span><span style="display:flex;"><span>  std<span style="color:#f92672">::</span>vector<span style="color:#f92672">&lt;</span>Value<span style="color:#f92672">&gt;</span> aggregates_;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SimpleAggregationHashTable</span> {
+</span></span><span style="display:flex;"><span>  std<span style="color:#f92672">::</span>unordered_map<span style="color:#f92672">&lt;</span>AggregateKey, AggregateValue<span style="color:#f92672">&gt;</span> ht_{};
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> std<span style="color:#f92672">::</span>vector<span style="color:#f92672">&lt;</span>AbstractExpressionRef<span style="color:#f92672">&gt;</span> <span style="color:#f92672">&amp;</span>agg_exprs_;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> std<span style="color:#f92672">::</span>vector<span style="color:#f92672">&lt;</span>AggregationType<span style="color:#f92672">&gt;</span> <span style="color:#f92672">&amp;</span>agg_types_;
+</span></span><span style="display:flex;"><span> }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AggregationExecutor</span> {
+</span></span><span style="display:flex;"><span>     SimpleAggregationHashTable aht_;
+</span></span><span style="display:flex;"><span>     SimpleAggregationHashTable<span style="color:#f92672">::</span>Iterator aht_iterator_;
+</span></span><span style="display:flex;"><span> }
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// define hash function for AggregateKey
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">namespace</span> std {
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">template</span> <span style="color:#f92672">&lt;&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">hash</span><span style="color:#f92672">&lt;</span>bustub<span style="color:#f92672">::</span>AggregateKey<span style="color:#f92672">&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">auto</span> <span style="color:#a6e22e">operator</span>()(<span style="color:#66d9ef">const</span> bustub<span style="color:#f92672">::</span>AggregateKey <span style="color:#f92672">&amp;</span>agg_key) <span style="color:#66d9ef">const</span> <span style="color:#f92672">-&gt;</span> std<span style="color:#f92672">::</span>size_t {
+</span></span><span style="display:flex;"><span>    size_t curr_hash <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> <span style="color:#66d9ef">auto</span> <span style="color:#f92672">&amp;</span>key : agg_key.group_bys_) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>key.IsNull()) {
+</span></span><span style="display:flex;"><span>        curr_hash <span style="color:#f92672">=</span> bustub<span style="color:#f92672">::</span>HashUtil<span style="color:#f92672">::</span>CombineHashes(curr_hash, bustub<span style="color:#f92672">::</span>HashUtil<span style="color:#f92672">::</span>HashValue(<span style="color:#f92672">&amp;</span>key));
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> curr_hash;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>JoinExcutor方面，要实现NestedLoopJoin和NestedIndexJoin两种, 每种类别都要实现LeftJoin和InnerJoin两种形式。</p>
+<p>对于NestedLoopJoin，内表和外表两层嵌套循环，我在实现上只需要保存outer table的游标Tuple left_tuple_如果outer table跑完了，则结束。对于InnerJoin实现较简单；而LeftJoin在InnerJoin的基础上，还需要在内存循环判断是否找到了合适的inner table的匹配项。如果没有找到，则通过GetRightNullTuple（）获取一个空的内表元组与外表元组进行连接。</p>
+<p>对于NestedIndexJoin，则是通过内表的B+树索引进行连接，实现起来比NesteLoopJoin要容易，不过Bustub这里只支持BPlusTreeIndexForOneIntegerColumn，也就是以第一列Integer为索引。</p>
+<h3 id="task-3---sort--limit-executors-and-top-n-optimization">Task #3 - Sort + Limit Executors and Top-N Optimization</h3>
+<p>SortExcutor,这是一个阻塞的执行器。可以通过在Init阶段调用std::sort来实现，并重写排序函数：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>std<span style="color:#f92672">::</span>sort(sorted_tuples_.begin(), sorted_tuples_.end(), [<span style="color:#66d9ef">this</span>](<span style="color:#66d9ef">const</span> Tuple <span style="color:#f92672">&amp;</span>t1, <span style="color:#66d9ef">const</span> Tuple <span style="color:#f92672">&amp;</span>t2) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">auto</span> [sort_type, predicate] <span style="color:#f92672">:</span> plan_<span style="color:#f92672">-&gt;</span>GetOrderBy()) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">auto</span> v1 <span style="color:#f92672">=</span> predicate<span style="color:#f92672">-&gt;</span>Evaluate(<span style="color:#f92672">&amp;</span>t1, GetOutputSchema());
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">auto</span> v2 <span style="color:#f92672">=</span> predicate<span style="color:#f92672">-&gt;</span>Evaluate(<span style="color:#f92672">&amp;</span>t2, GetOutputSchema());
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (v1.CompareLessThan(v2) <span style="color:#f92672">==</span> CmpBool<span style="color:#f92672">::</span>CmpTrue) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> sort_type <span style="color:#f92672">!=</span> OrderByType<span style="color:#f92672">::</span>DESC;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (v1.CompareGreaterThan(v2) <span style="color:#f92672">==</span> CmpBool<span style="color:#f92672">::</span>CmpTrue) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> sort_type <span style="color:#f92672">==</span> OrderByType<span style="color:#f92672">::</span>DESC;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span></code></pre></div><p>Limit Executors非常简单，计数输出即可。</p>
+<p>Top-N Optimization是为了对Sort+Limit组合算子进行优化，形成一个TopN算子。这里涉及到优化器的内容，先看看优化器的实现原理：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#66d9ef">auto</span> Optimizer<span style="color:#f92672">::</span>Optimize(<span style="color:#66d9ef">const</span> AbstractPlanNodeRef <span style="color:#f92672">&amp;</span>plan) <span style="color:#f92672">-&gt;</span> AbstractPlanNodeRef {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (force_starter_rule_) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Use starter rules when `force_starter_rule_` is set to true.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">auto</span> p <span style="color:#f92672">=</span> plan;
+</span></span><span style="display:flex;"><span>    p <span style="color:#f92672">=</span> OptimizeMergeProjection(p);
+</span></span><span style="display:flex;"><span>    p <span style="color:#f92672">=</span> OptimizeMergeFilterNLJ(p);
+</span></span><span style="display:flex;"><span>    p <span style="color:#f92672">=</span> OptimizeNLJAsIndexJoin(p);
+</span></span><span style="display:flex;"><span>    p <span style="color:#f92672">=</span> OptimizeOrderByAsIndexScan(p);
+</span></span><span style="display:flex;"><span>    p <span style="color:#f92672">=</span> OptimizeSortLimitAsTopN(p);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> p;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// By default, use user-defined rules.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">OptimizeCustom</span>(plan);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>也就是对根节点依次运用规则进行优化，包括消除多余的projection节点、将笛卡尔积+条件筛选转化为带条件的NLJ)、将NLJ优化为IndexJoin或者HashJoin、将OrderBy优化为IndexScan等。</p>
+<p>我们要实现的是将Sort+Limit转化为TopN。实现起来非常简单，先对表达式树进行后序遍历，然后判断该节点的子节点是不是Limit且子节点为Sort，如果是，则合并为一个TopN节点。</p>
+<p>接下来就是TopN Executor的实现，其实这是一个堆的经典应用问题。方法就是维护一个大小为N的小根堆，每次进来一个元素X，就和堆顶的元素进行大小比较，如果比堆顶大，就pop掉堆顶元素，然后将X push到堆中；这样最终就能得到序列中最大的N个元素，时间复杂度为O(n)。</p>
+</div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>Updated on 2023-08-09</span>
+            </div></div>
+        <div class="post-info-line">
+            <div class="post-info-md"></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/" data-title="CMU15-445 (2022fall) project笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/" data-title="CMU15-445 (2022fall) project笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/" data-title="CMU15-445 (2022fall) project笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/" data-title="CMU15-445 (2022fall) project笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/posts/map_reduce/" class="prev" rel="prev" title="MIT 6.824 2020   lab1-MapReduce实现笔记"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>MIT 6.824 2020   lab1-MapReduce实现笔记</a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.111.3">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2023</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="Back to Top">
+                <i class="fas fa-arrow-up fa-fw" aria-hidden="true"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
+                <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>
