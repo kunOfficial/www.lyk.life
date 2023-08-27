@@ -6,7 +6,7 @@
         <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Sun, 27 Aug 2023 12:22:37 &#43;0800</lastBuildDate>
             <atom:link href="http://lyk.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
-    <title>Raft</title>
+    <title>MIT 6.824 2020 lab2 Raft 实现笔记</title>
     <link>http://lyk.github.io/posts/raft/</link>
     <pubDate>Sun, 27 Aug 2023 12:22:37 &#43;0800</pubDate>
     <author>lyk</author>

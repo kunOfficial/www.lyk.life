@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noodp" />
-        <title>Raft - lyk の tech blog</title><meta name="Description" content="呀，被发现了ʕ•ᴥ•ʔ，blog里有一些笔记"><meta property="og:title" content="Raft" />
+        <title>MIT 6.824 2020 lab2 Raft 实现笔记 - lyk の tech blog</title><meta name="Description" content="呀，被发现了ʕ•ᴥ•ʔ，blog里有一些笔记"><meta property="og:title" content="MIT 6.824 2020 lab2 Raft 实现笔记" />
 <meta property="og:description" content="MIT 6.824 2020 lab2 Raft 实现笔记 这个lab我是边看论文、边看课边做的，前前后后花了快2周，非常有挑战性。做完后感触颇深，特别是后来再去了解了一下Paxos后，更感慨raft的大道至简，也钦佩这篇论文的作者——来自Stanford的Diego Ongaro，一是钦佩他的分布式算法设计能力，二是钦佩他的严谨的思维，三是钦佩他的文字表达能力，我虽然从没接触过共识算法，但也能较轻松地看懂论文（唯一 figure 8看了我一个下午我都没看懂，后来上网查才发现好多人也没看懂这个），并根据figure 2来实现一个这样的系统，真可谓是深入浅出。
 基础设施 labrpc是模拟了一个网络，网络除了模拟正常的网络延迟，还模拟了异常的情况，比如可能出现丢包（返回ReplyMsg{false, nil}), 长时间延迟等。
 config.go里相当于构建了一个raft集群环境，可以通过connect,、disconnect等模拟这个环境可能出现的状况。并通过checkOneLeader等接口可以查看这个环境当前的运行状况。另外还有one函数，会尝试start一个log，并检测集群内是否达到了共识，是主要的test手段。
@@ -16,7 +16,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { //
 <meta property="article:published_time" content="2023-08-27T12:22:37+08:00" />
 <meta property="article:modified_time" content="2023-08-27T12:22:37+08:00" /><meta property="og:site_name" content="lyk 的笔记小站" />
 <meta name="twitter:card" content="summary"/>
-<meta name="twitter:title" content="Raft"/>
+<meta name="twitter:title" content="MIT 6.824 2020 lab2 Raft 实现笔记"/>
 <meta name="twitter:description" content="MIT 6.824 2020 lab2 Raft 实现笔记 这个lab我是边看论文、边看课边做的，前前后后花了快2周，非常有挑战性。做完后感触颇深，特别是后来再去了解了一下Paxos后，更感慨raft的大道至简，也钦佩这篇论文的作者——来自Stanford的Diego Ongaro，一是钦佩他的分布式算法设计能力，二是钦佩他的严谨的思维，三是钦佩他的文字表达能力，我虽然从没接触过共识算法，但也能较轻松地看懂论文（唯一 figure 8看了我一个下午我都没看懂，后来上网查才发现好多人也没看懂这个），并根据figure 2来实现一个这样的系统，真可谓是深入浅出。
 基础设施 labrpc是模拟了一个网络，网络除了模拟正常的网络延迟，还模拟了异常的情况，比如可能出现丢包（返回ReplyMsg{false, nil}), 长时间延迟等。
 config.go里相当于构建了一个raft集群环境，可以通过connect,、disconnect等模拟这个环境可能出现的状况。并通过checkOneLeader等接口可以查看这个环境当前的运行状况。另外还有one函数，会尝试start一个log，并检测集群内是否达到了共识，是主要的test手段。
@@ -32,7 +32,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { //
     {
         "@context": "http://schema.org",
         "@type": "BlogPosting",
-        "headline": "Raft",
+        "headline": "MIT 6.824 2020 lab2 Raft 实现笔记",
         "inLanguage": "en-us",
         "mainEntityOfPage": {
             "@type": "WebPage",
@@ -77,7 +77,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { //
                 <div class="container"><div class="toc" id="toc-auto">
             <h2 class="toc-title">Contents</h2>
             <div class="toc-content" id="toc-content-auto"></div>
-        </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">Raft</h1><div class="post-meta">
+        </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.824 2020 lab2 Raft 实现笔记</h1><div class="post-meta">
             <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
             <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-27">2023-08-27</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;518 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;3 minutes&nbsp;</div>
@@ -329,7 +329,7 @@ they are tricky to use correctly.</p>
         <div class="post-info-line">
             <div class="post-info-md"></div>
             <div class="post-info-share">
-                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/raft/" data-title="Raft"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/raft/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/raft/" data-title="Raft"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/raft/" data-title="Raft"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/raft/" data-title="Raft"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/raft/" data-title="MIT 6.824 2020 lab2 Raft 实现笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/raft/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/raft/" data-title="MIT 6.824 2020 lab2 Raft 实现笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/raft/" data-title="MIT 6.824 2020 lab2 Raft 实现笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/raft/" data-title="MIT 6.824 2020 lab2 Raft 实现笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
             </div>
         </div>
     </div>
