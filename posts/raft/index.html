@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <title>Raft - lyk の tech blog</title><meta name="Description" content="呀，被发现了ʕ•ᴥ•ʔ，blog里有一些笔记"><meta property="og:title" content="Raft" />
+<meta property="og:description" content="MIT 6.824 2020 lab2 Raft 实现笔记 这个lab我是边看论文、边看课边做的，前前后后花了快2周，非常有挑战性。做完后感触颇深，特别是后来再去了解了一下Paxos后，更感慨raft的大道至简，也钦佩这篇论文的作者——来自Stanford的Diego Ongaro，一是钦佩他的分布式算法设计能力，二是钦佩他的严谨的思维，三是钦佩他的文字表达能力，我虽然从没接触过共识算法，但也能较轻松地看懂论文（唯一 figure 8看了我一个下午我都没看懂，后来上网查才发现好多人也没看懂这个），并根据figure 2来实现一个这样的系统，真可谓是深入浅出。
+基础设施 labrpc是模拟了一个网络，网络除了模拟正常的网络延迟，还模拟了异常的情况，比如可能出现丢包（返回ReplyMsg{false, nil}), 长时间延迟等。
+config.go里相当于构建了一个raft集群环境，可以通过connect,、disconnect等模拟这个环境可能出现的状况。并通过checkOneLeader等接口可以查看这个环境当前的运行状况。另外还有one函数，会尝试start一个log，并检测集群内是否达到了共识，是主要的test手段。
+lab2A 领导人选举 首先，每个raft服务启动时，会开启一个electionTimeOut的计时器，如果计时结束前收到了RequestVote请求。
+RequestVote RPC 代码如下，注意，后面关于有关与log的判断是lab2B加上去的。
+func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { // Your code here (2A, 2B). rf.mu.Lock() fmt.Printf(&#34;RV from %d to %d received: %&#43;v with curTerm:%d votedFor:%d\n&#34;, args.CandidateId, rf.me, args, rf.currentTerm, rf.votedFor) defer rf.mu.Unlock() reply.Term = rf.currentTerm if args.Term &lt; rf.currentTerm { reply.VoteGranted = false rf.persist() return } if args.Term == rf." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://lyk.github.io/posts/raft/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2023-08-27T12:22:37+08:00" />
+<meta property="article:modified_time" content="2023-08-27T12:22:37+08:00" /><meta property="og:site_name" content="lyk 的笔记小站" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Raft"/>
+<meta name="twitter:description" content="MIT 6.824 2020 lab2 Raft 实现笔记 这个lab我是边看论文、边看课边做的，前前后后花了快2周，非常有挑战性。做完后感触颇深，特别是后来再去了解了一下Paxos后，更感慨raft的大道至简，也钦佩这篇论文的作者——来自Stanford的Diego Ongaro，一是钦佩他的分布式算法设计能力，二是钦佩他的严谨的思维，三是钦佩他的文字表达能力，我虽然从没接触过共识算法，但也能较轻松地看懂论文（唯一 figure 8看了我一个下午我都没看懂，后来上网查才发现好多人也没看懂这个），并根据figure 2来实现一个这样的系统，真可谓是深入浅出。
+基础设施 labrpc是模拟了一个网络，网络除了模拟正常的网络延迟，还模拟了异常的情况，比如可能出现丢包（返回ReplyMsg{false, nil}), 长时间延迟等。
+config.go里相当于构建了一个raft集群环境，可以通过connect,、disconnect等模拟这个环境可能出现的状况。并通过checkOneLeader等接口可以查看这个环境当前的运行状况。另外还有one函数，会尝试start一个log，并检测集群内是否达到了共识，是主要的test手段。
+lab2A 领导人选举 首先，每个raft服务启动时，会开启一个electionTimeOut的计时器，如果计时结束前收到了RequestVote请求。
+RequestVote RPC 代码如下，注意，后面关于有关与log的判断是lab2B加上去的。
+func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { // Your code here (2A, 2B). rf.mu.Lock() fmt.Printf(&#34;RV from %d to %d received: %&#43;v with curTerm:%d votedFor:%d\n&#34;, args.CandidateId, rf.me, args, rf.currentTerm, rf.votedFor) defer rf.mu.Unlock() reply.Term = rf.currentTerm if args.Term &lt; rf.currentTerm { reply.VoteGranted = false rf.persist() return } if args.Term == rf."/>
+<meta name="application-name" content="My cool site">
+<meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/raft/" /><link rel="prev" href="http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "Raft",
+        "inLanguage": "en-us",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "http:\/\/lyk.github.io\/posts\/raft\/"
+        },"genre": "posts","wordcount":  518 ,
+        "url": "http:\/\/lyk.github.io\/posts\/raft\/","datePublished": "2023-08-27T12:22:37+08:00","dateModified": "2023-08-27T12:22:37+08:00","publisher": {
+            "@type": "Organization",
+            "name": ""},"author": {
+                "@type": "Person",
+                "name": "lyk"
+            },"description": ""
+    }
+    </script></head>
+    <body data-header-desktop="fixed" data-header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('auto' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'auto' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="lyk の tech blog">lyk的学习笔记</a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                    <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+                </a></div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="lyk の tech blog">lyk的学习笔记</a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+            </a></div>
+    </div>
+</header><main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">Contents</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">Raft</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-27">2023-08-27</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;518 words&nbsp;
+                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;3 minutes&nbsp;</div>
+        </div><div class="details toc" id="toc-static"  data-kept="">
+                <div class="details-summary toc-title">
+                    <span>Contents</span>
+                    <span><i class="details-icon fas fa-angle-right" aria-hidden="true"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#基础设施">基础设施</a></li>
+    <li><a href="#lab2a-领导人选举">lab2A 领导人选举</a>
+      <ul>
+        <li><a href="#requestvote-rpc"><strong>RequestVote</strong> RPC</a></li>
+        <li><a href="#时间常量的选择">时间常量的选择</a></li>
+      </ul>
+    </li>
+    <li><a href="#lab2b-日志复制">lab2B 日志复制</a>
+      <ul>
+        <li><a href="#快速backup"><strong>快速backup</strong></a></li>
+        <li><a href="#appendentries-rpc">AppendEntries RPC</a></li>
+        <li><a href="#install-snapshot-rpc">Install Snapshot RPC</a></li>
+        <li><a href="#qa"><strong>Q&amp;A</strong></a></li>
+      </ul>
+    </li>
+    <li><a href="#lab3c-持久化">lab3C 持久化</a>
+      <ul>
+        <li><a href="#qa-1">Q&amp;A</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a>
+      <ul>
+        <li><a href="#值得记录的历程">值得记录的历程</a></li>
+        <li><a href="#感慨与收获">感慨与收获</a></li>
+        <li><a href="#下一步">下一步</a></li>
+      </ul>
+    </li>
+    <li><a href="#参考的资料">参考的资料</a></li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><h1 id="mit-6824-2020-lab2-raft-实现笔记">MIT 6.824 2020 lab2 Raft 实现笔记</h1>
+<p>这个lab我是边看论文、边看课边做的，前前后后花了快2周，非常有挑战性。做完后感触颇深，特别是后来再去了解了一下Paxos后，更感慨raft的大道至简，也钦佩这篇论文的作者——来自Stanford的Diego Ongaro，一是钦佩他的分布式算法设计能力，二是钦佩他的严谨的思维，三是钦佩他的文字表达能力，我虽然从没接触过共识算法，但也能较轻松地看懂论文（唯一 figure 8看了我一个下午我都没看懂，后来上网查才发现好多人也没看懂这个），并根据figure 2来实现一个这样的系统，真可谓是深入浅出。</p>
+<h2 id="基础设施">基础设施</h2>
+<p>labrpc是模拟了一个网络，网络除了模拟正常的网络延迟，还模拟了异常的情况，比如可能出现丢包（返回ReplyMsg{false, nil}), 长时间延迟等。</p>
+<p>config.go里相当于构建了一个raft集群环境，可以通过connect,、disconnect等模拟这个环境可能出现的状况。并通过checkOneLeader等接口可以查看这个环境当前的运行状况。另外还有one函数，会尝试start一个log，并检测集群内是否达到了共识，是主要的test手段。</p>
+<h2 id="lab2a-领导人选举">lab2A 领导人选举</h2>
+<p>首先，每个raft服务启动时，会开启一个electionTimeOut的计时器，如果计时结束前收到了RequestVote请求。</p>
+<h3 id="requestvote-rpc"><strong>RequestVote</strong> RPC</h3>
+<p>代码如下，注意，后面关于有关与log的判断是lab2B加上去的。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">rf</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">Raft</span>) <span style="color:#a6e22e">RequestVote</span>(<span style="color:#a6e22e">args</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">RequestVoteArgs</span>, <span style="color:#a6e22e">reply</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">RequestVoteReply</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// Your code here (2A, 2B).
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">mu</span>.<span style="color:#a6e22e">Lock</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Printf</span>(<span style="color:#e6db74">&#34;RV from %d to %d received: %+v with curTerm:%d votedFor:%d\n&#34;</span>, <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">CandidateId</span>, <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">me</span>, <span style="color:#a6e22e">args</span>, <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span>, <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">votedFor</span>)
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">mu</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">Term</span> = <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">Term</span> &lt; <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">VoteGranted</span> = <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">persist</span>()
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">Term</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">votedFor</span> <span style="color:#f92672">!=</span> <span style="color:#a6e22e">None</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">votedFor</span> <span style="color:#f92672">!=</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">CandidateId</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">VoteGranted</span> = <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span> = <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">Term</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">persist</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">fallFollower</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>[len(<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>)<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>].<span style="color:#a6e22e">Term</span> &lt; <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">LastLogTerm</span> <span style="color:#f92672">||</span> (<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>[len(<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>)<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>].<span style="color:#a6e22e">Term</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">LastLogTerm</span> <span style="color:#f92672">&amp;&amp;</span> len(<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>) <span style="color:#f92672">&lt;=</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">LastLogIndex</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">votedFor</span> = <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">CandidateId</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">VoteGranted</span> = <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">VoteGranted</span> = <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>如果electionTimeOut的计时器超时，则将自己转为candidate, 并向其余server发送RequestVote请求。如果vote数目大于quorum,那么立即向其余server发送空的AppendEntry的心跳,之后以heartbeat interval的时间间隔来发送心跳。</p>
+<h3 id="时间常量的选择">时间常量的选择</h3>
+<p>对于时间常量的选择，这是etcd的做法https://www.zhihu.com/question/263684969heartbeat 是将interval设为100ms, 而electionTimeOut可以设为1000~2000ms,，论文里写的是：保证elecion timeout的数量级比heartbeat interval大1；而lab官方hint里的说法好像不一样，推荐使用heartbeat interval = 100ms, electionTimeout=150~300ms,必须保证leader挂了后5s内能选出新leader。</p>
+<p>electionTimer, 计时到后自增term并发起下一轮选举，并重置electionTimer（选举也会超时，我后面才知道的）。如果candidate发现自己无法获得更多选票，即已经得到了所有server的回复，且vote数小于quorom，则竞选失败，等待下一轮竞选；如果一旦发现vote数大于等于quorom，则竞选成功，立马启动sendHeartbeat的goroutine开始安抚follower。</p>
+<p>在AppendEntry rpc中，如果当前处于candidate状态，检查一下term,如果term小于自身自身term,则拒绝；否则重置electionTimeOut,更新term,最后返回true。</p>
+<p>代码很简单，就不贴了，真正修改log的核心逻辑是在lab2B里实现的。</p>
+<p>实现时踩的一些坑：</p>
+<p>（1）很多地方是不能阻塞的，比如election阶段，作为candidate不需要也不能等所有其余server都给出reply后，才结束选举：这是因为有的server可能出现断连的状态，所以会等待不必要地较长时间，实际上如果得到了多数votes,就可以直接将自己作为follower退出了；另外，AppendEntries rpc的调用是不能阻塞的(这是我花时间找最多的一个bug)，需要用goroutine,这是因为心跳要严格按照heartbeat interval的间隔来进行发送，而不是等调用成功（可能超时，用了1s钟以上，在这个时间段内，即使目标从disconnect 情况下重新connect了，也不能及时收到下一个AP请求，这会造成test fail）再sleep heartbeat interval。</p>
+<p>（2）选举也会超时，这样面对选票割裂的情况，就不会无限僵持。所以在每轮election开始前，都会重新设置electionTimer, 如果选举失败，第二轮的election会重新由electionTimer来触发。为了第二次election的开始，相应的select &lt;- rf.electionTimer.C的for loop也需要设置成非阻塞的。如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>	<span style="color:#66d9ef">go</span> <span style="color:#66d9ef">func</span>() {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">select</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">case</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">electionTimer</span>.<span style="color:#a6e22e">C</span>:
+</span></span><span style="display:flex;"><span>				{
+</span></span><span style="display:flex;"><span>					<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">mu</span>.<span style="color:#a6e22e">Lock</span>()
+</span></span><span style="display:flex;"><span>					<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">status</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">Leader</span> {
+</span></span><span style="display:flex;"><span>						<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">mu</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>						<span style="color:#66d9ef">continue</span>
+</span></span><span style="display:flex;"><span>					}
+</span></span><span style="display:flex;"><span>					<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">mu</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>					<span style="color:#66d9ef">go</span> <span style="color:#66d9ef">func</span>() {
+</span></span><span style="display:flex;"><span>						<span style="color:#a6e22e">is_leader</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">startElection</span>()
+</span></span><span style="display:flex;"><span>						<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">is_leader</span> {
+</span></span><span style="display:flex;"><span>							<span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Printf</span>(<span style="color:#e6db74">&#34;%d becomes the leader!!!\n&#34;</span>, <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">me</span>)
+</span></span><span style="display:flex;"><span>							<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">sendHeartBeat</span>()
+</span></span><span style="display:flex;"><span>						}
+</span></span><span style="display:flex;"><span>					}()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>				}
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}()
+</span></span></code></pre></div><p>做lab2B的时候，才发现官方推荐的electionTimeout检测不是使用time.Timer，而是</p>
+<blockquote>
+<p>have the election timeout goroutine periodically check to see whether the time since then is greater than the timeout period. It&rsquo;s easiest to use time.Sleep() with a small constant argument to
+drive the periodic checks. Don&rsquo;t use time.Ticker and time.Timer;
+they are tricky to use correctly.</p>
+</blockquote>
+<p>不过我认为使用Timer能够获得更好的性能，并且降低冲突概率（多个server同时超时）。</p>
+<h2 id="lab2b-日志复制">lab2B 日志复制</h2>
+<p>要在lab2A上添加的主要有两方面：</p>
+<p>（1）RequestVote中，添加根据日志情况进行投票判断的逻辑，具体来说， 除了比较currentTerm，还要比较lastlog的term以及log的总长度。</p>
+<p>（2）AppendEntries中，对于leader来说，需要将从nextIndex开始的所有log发送各个给follower，并根据返回结果是否success以及一些*额外的信息（比如follower的对应任期的第一条log)</p>
+<p>注意，start函数并不是等大多数server复制了副本后才返回，而是直接返回，并且也不保证一定能够提交。这与真实的raft系统还是不一样的，因为真实的raft只有在大多数server复制了副本（复制副本也是通过AP rpc进行的，所以也会保证只有之前的log全部成功复制后，后面的log才有可能复制）后才会通知server,相当于给server的一个最终一定会提交的承诺。</p>
+<p>start的语义实际上是“尽可能的交付”，其实并发起来也不会产生奇怪的问题。因为raft能够保证只有之前的log全都提交了，新的log才能提交，所以不会出现后面的log提交了，而前面的log最终提交失败的问题。</p>
+<p>log的index从1和从0开始，都无所谓。</p>
+<h3 id="快速backup"><strong>快速backup</strong></h3>
+<p>可以通过在AP rpc中返回额外的信息来加速backup, Morris提到了一个很好的策略，具体的返回参数如下：</p>
+<blockquote>
+<p>XTerm: 发生confict条目的term(case 1, case 2)</p>
+<p>XIndex*: XTerm的第一条entry的index (case 1)</p>
+<p>（*2023.8.24 注：我认为这个参数是没有必要的，我的实现中只用到了XTerm和XLen。2023.8.27 更新：好吧，这个参数是一定要的，不然某些情形下无法backup收敛）</p>
+<p>XLen: log的长度（case 3)</p>
+</blockquote>
+<p>可以解决以下三种情况。</p>
+<p><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230822143042994.png"
+        data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230822143042994.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230822143042994.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230822143042994.png 2x"
+        data-sizes="auto"
+        alt="C:\Users\lyk\AppData\Roaming\Typora\typora-user-images\image-20230822143042994.png"
+        title="image-20230822143042994" /></p>
+<p>Q:有没有可能遇到以下情况？</p>
+<p>S1: 4 4 5</p>
+<p>S2: 4 6 6 6</p>
+<p>A:应该是不可能出现的, 因为index=2&amp;&amp;term=4的log一定是提交了的，与S2中的index=2 处的log矛盾了。</p>
+<h3 id="appendentries-rpc">AppendEntries RPC</h3>
+<p>AP rpc的最终代码：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">rf</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">Raft</span>) <span style="color:#a6e22e">AppendEntries</span>(<span style="color:#a6e22e">args</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">AppendEntriesArgs</span>, <span style="color:#a6e22e">reply</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">AppendEntriesReply</span>) {
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">mu</span>.<span style="color:#a6e22e">Lock</span>()
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Printf</span>(<span style="color:#e6db74">&#34;AP from %d to %d received with AppendEntriesArgs: %+v\n&#34;</span>, <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">LeaderId</span>, <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">me</span>, <span style="color:#a6e22e">args</span>)
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">mu</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">Term</span> = <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span>
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">Term</span> &lt; <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>   }
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">need_persist</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">defer</span> <span style="color:#66d9ef">func</span>() {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">need_persist</span> {
+</span></span><span style="display:flex;"><span>         <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">persist</span>()
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>   }()
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">Term</span> &gt; <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">currentTerm</span> = <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">Term</span>
+</span></span><span style="display:flex;"><span>   }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">XLen</span> = len(<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>)
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">fallFollower</span>()
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">if</span> len(<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>) <span style="color:#f92672">&lt;=</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">PrevLogIndex</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// log length diff &gt;= 2
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">Success</span> = <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>   }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">target_term</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>[<span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">PrevLogIndex</span>].<span style="color:#a6e22e">Term</span>
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">target_term</span> <span style="color:#f92672">!=</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">PrevLogTerm</span> { <span style="color:#75715e">// conflict
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">Success</span> = <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">XTerm</span> = <span style="color:#a6e22e">target_term</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">PrevLogIndex</span> <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span>; <span style="color:#a6e22e">i</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0</span>; <span style="color:#a6e22e">i</span><span style="color:#f92672">--</span> {
+</span></span><span style="display:flex;"><span>         <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>[<span style="color:#a6e22e">i</span>].<span style="color:#a6e22e">Term</span> <span style="color:#f92672">!=</span> <span style="color:#a6e22e">target_term</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">XIndex</span> = <span style="color:#a6e22e">i</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>         }
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>   }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">reply</span>.<span style="color:#a6e22e">Success</span> = <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>   <span style="color:#75715e">// Tip: golang append slice to slice
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>   <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span> = append(<span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>[:<span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">PrevLogIndex</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>], <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">Entries</span><span style="color:#f92672">...</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">commitIndex</span> &lt; <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">LeaderCommit</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">commitIndex</span> = <span style="color:#a6e22e">args</span>.<span style="color:#a6e22e">LeaderCommit</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">applyCond</span>.<span style="color:#a6e22e">Broadcast</span>()
+</span></span><span style="display:flex;"><span>   }
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">persist</span>()
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">need_persist</span> = <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Printf</span>(<span style="color:#e6db74">&#34;%d&#39;s log: %v\n&#34;</span>, <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">me</span>, <span style="color:#a6e22e">rf</span>.<span style="color:#a6e22e">log</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="install-snapshot-rpc">Install Snapshot RPC</h3>
+<p>对于snapshot, follower在落后leader很多导致leader没有保留需要的旧log的情况下，leader会对follower发送install snapshot 的RPC请求。</p>
+<h3 id="qa"><strong>Q&amp;A</strong></h3>
+<p>Q:对于选举超时的机制的问题：在网络发生partition时，数量上占小部分的partition会不断地发生选举超时，任期无限制增加，等到网络分区问题修复后，会使得raft集群崩溃吗？</p>
+<p>A:不会，因为任期作为参数和返回值通过RPC在集群中传播，所以分区问题修复后，各个机器会很快将自己的任期更新到最新的任期，所以接下来一切照常运行。</p>
+<p>Q:为什么leader只能提交currentTerm的log?</p>
+<p>A:见论文的figure 8，会发生已经commit的log被覆盖的问题。</p>
+<p>Q:如果follower收到旧于当前日志的snapshot install（可能由于网络的原因）,那是应该直接丢还是进行替换呢？</p>
+<p>A：丢弃的好处是可以提前终止snapshot的发送（可能占不少网络资源），替换的好处是可以节省掉根据日志构建snapshot的时间，所以选择丢弃还是替换，可能可以作为一个研究点。</p>
+<h2 id="lab3c-持久化">lab3C 持久化</h2>
+<p>figure 2里面写好了需要持久化的state,所以lab3C只需要在需要修改这三个变量的地方，调用持久化的接口就好了，所以实现很简单。真正的难点在于：为什么持久化这3个变量？</p>
+<p><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230824151157396.png"
+        data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230824151157396.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230824151157396.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20230824151157396.png 2x"
+        data-sizes="auto"
+        alt="C:\Users\lyk\AppData\Roaming\Typora\typora-user-images\image-20230824151157396.png"
+        title="image-20230824151157396" /></p>
+<h3 id="qa-1">Q&amp;A</h3>
+<p>Q:为什么要持久化currentTerm,我的以下方法规避了持久化currentTerm的问题，是否可行？我的方法：在recover后，将currentTerm设为log中最后一个entry的term值。</p>
+<p>A:我这种方法不能防止如下情况：</p>
+<p>S1: 5 5 6(作为term = 6 的leader，被disconnect)</p>
+<p>S2: 5 5（S1宕机之后重启，此时按照log最后一个term将currentTerm赋值为5）</p>
+<p>S3: 5 5 （同S2)</p>
+<p>这种情况下，S2和S3中会选出新的term=6的leader,那么term=6就存在两个leader了,也就是说index=3&amp;&amp;term=6的log可能不同，这会最终导致状态机状态不一致。所以currentTerm必须持久化。</p>
+<p>Q:votedFor必须持久化？</p>
+<p>A:必须，因为一个follower 在vote后crash掉了，recover后它是不知道自己有没有投过票的，这样可能出现brain split的问题。</p>
+<p>Q: log必须持久化？</p>
+<p>A:必须，因为被提交的log entry会存到大部分servers中，这是raft safety property（被选举出来的leader一定保存有所有被commit的log）的一个很重要的保证。如果不持久化log, 而是在recover后将log设为空，那么就有可能丢失被提交的log，造成错误。</p>
+<p>Q:为什么last applied 不用持久化？</p>
+<p>Q:在持久化时，必须要像数据库那样采用WAL的策略吗，即先改变磁盘中的值？</p>
+<p>A:不需要，只需要在下一次与外界进行rpc交流前进行持久化即可。而RV和AP rpc调用时首先都要获取锁，所以只要在持久化之后释放锁，就能保证这一点。</p>
+<h2 id="总结">总结</h2>
+<h3 id="值得记录的历程">值得记录的历程</h3>
+<p>2023.8.25 TestPersist22C这个测试点卡了我大半天，最后发现居然是RV rpc写错了，逻辑想简单了，看来前面lab2A和lab2B的测例不够强。非常感谢raft官网的动画 [raft.github.io]，很助于理解。</p>
+<p>2023.8.27 TestFigure82C这个测试点卡了我整整一天，最后发现居然是更新nextIndex的地方自作聪明避免使用使用Xindex，结果造成了nextIndex在特定情况下会僵持不动，无法完成backup的收敛。</p>
+<h3 id="感慨与收获">感慨与收获</h3>
+<p>一开始我还有不少地方想着不用完全按照论文里的一模一样来做，所以看了论文感觉大概理解后，就开始动手了，边想边做。结果就是Lab测例里稍微复杂点的测例就通不过——最终的结果就是，大费周折找到的几乎只有四种情况：1.手滑的低级错误（index写成XIndex等）；2.原文中我理解错的地方（如选举的timeout以及投票的逻辑）；3.原文中我忽视的地方（figure 8的问题)；4.论文里没说但是Morris说的quick backup部分，我很自信没完全按他的来，自以为“优化”了，其实是不严谨的。</p>
+<p>最大的收获是：我开始非常勤于问自己问题，并勤快地记录下自己的思考，应养成习惯！</p>
+<h3 id="下一步">下一步</h3>
+<p>学一下TLA+，看看Diego Ongaro给出的证明：https://github.com/ongardie/raft.tla</p>
+<p>再更深入了解下paxos及其变种。</p>
+<h2 id="参考的资料">参考的资料</h2>
+<p><a href="http://www.kailing.pub/raft/index.html#replication" target="_blank" rel="noopener noreffer ">http://www.kailing.pub/raft/index.html#replication</a> 论文</p>
+<p><a href="http://nil.csail.mit.edu/6.824/2020/labs/lab-raft.html" target="_blank" rel="noopener noreffer ">http://nil.csail.mit.edu/6.824/2020/labs/lab-raft.html</a> 6.824 Lab 2: Raft</p>
+<p><a href="https://raft.github.io/" target="_blank" rel="noopener noreffer ">https://raft.github.io/</a> 官方动画演示</p>
+<p><a href="http://www.kailing.pub/raft/index.html#replication" target="_blank" rel="noopener noreffer ">http://www.kailing.pub/raft/index.html#replication</a> 民间动画演示</p>
+</div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>Updated on 2023-08-27</span>
+            </div></div>
+        <div class="post-info-line">
+            <div class="post-info-md"></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/raft/" data-title="Raft"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/raft/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/raft/" data-title="Raft"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/raft/" data-title="Raft"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/raft/" data-title="Raft"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/" class="prev" rel="prev" title="CMU15-445 (2022fall) project笔记"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>CMU15-445 (2022fall) project笔记</a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.111.3">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2023</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="Back to Top">
+                <i class="fas fa-arrow-up fa-fw" aria-hidden="true"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
+                <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>
