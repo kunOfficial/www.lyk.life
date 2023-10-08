@@ -33,7 +33,7 @@ Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分�
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "http:\/\/lyk.github.io\/posts\/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0\/"
-        },"genre": "posts","wordcount":  609 ,
+        },"genre": "posts","wordcount":  729 ,
         "url": "http:\/\/lyk.github.io\/posts\/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0\/","datePublished": "2023-08-09T15:29:40+08:00","dateModified": "2023-08-09T15:29:40+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
@@ -75,8 +75,8 @@ Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分�
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">CMU15-445 (2022fall) project笔记</h1><div class="post-meta">
             <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
-            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-09">2023-08-09</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;609 words&nbsp;
-                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;3 minutes&nbsp;</div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-09">2023-08-09</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;729 words&nbsp;
+                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;4 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
                 <div class="details-summary toc-title">
                     <span>Contents</span>
@@ -105,6 +105,14 @@ Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分�
         <li><a href="#task-1---access-method-executors">Task #1 - Access Method Executors</a></li>
         <li><a href="#task-2---aggregation--join-executors">Task #2 - Aggregation &amp; Join Executors</a></li>
         <li><a href="#task-3---sort--limit-executors-and-top-n-optimization">Task #3 - Sort + Limit Executors and Top-N Optimization</a></li>
+      </ul>
+    </li>
+    <li><a href="#project-4---concurrency-control">Project #4 - Concurrency Control</a>
+      <ul>
+        <li><a href="#task-1-lock-manager">Task #1 Lock Manager</a></li>
+        <li><a href="#task-2-deadlockmanager">Task #2 DeadLockManager</a></li>
+        <li><a href="#task-3---concurrent-query-execution">Task #3 - Concurrent Query Execution</a></li>
+        <li><a href="#茶余饭后">茶余饭后</a></li>
       </ul>
     </li>
   </ul>
@@ -297,6 +305,75 @@ Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分�
 </span></span></code></pre></div><p>也就是对根节点依次运用规则进行优化，包括消除多余的projection节点、将笛卡尔积+条件筛选转化为带条件的NLJ)、将NLJ优化为IndexJoin或者HashJoin、将OrderBy优化为IndexScan等。</p>
 <p>我们要实现的是将Sort+Limit转化为TopN。实现起来非常简单，先对表达式树进行后序遍历，然后判断该节点的子节点是不是Limit且子节点为Sort，如果是，则合并为一个TopN节点。</p>
 <p>接下来就是TopN Executor的实现，其实这是一个堆的经典应用问题。方法就是维护一个大小为N的小根堆，每次进来一个元素X，就和堆顶的元素进行大小比较，如果比堆顶大，就pop掉堆顶元素，然后将X push到堆中；这样最终就能得到序列中最大的N个元素，时间复杂度为O(n)。</p>
+<h2 id="project-4---concurrency-control">Project #4 - Concurrency Control</h2>
+<p>这个project是我花时间最长的一个project，因为不知道如何下手。所以我先看了帆船书中的lock manager章节，可以说，bustub的这个锁管理器就是按照帆船书实现的。看完后再参照了大佬的博客，才知道具体该如何做，还是太菜了:( 。</p>
+<h3 id="task-1-lock-manager">Task #1 Lock Manager</h3>
+<p>要实现一个帆船书中的lock manager。并基于此，完善Transaction Manager的实现。Transaction Manager已经实现了Abort\Commit等方法。</p>
+<p>我们需要实现的就是lock_manager.cpp中的LockTable、LockRow、UnlockTable、UnLockRow。</p>
+<p>对于加锁的过程，可以总结如下：</p>
+<ul>
+<li>是否可以加锁
+<ul>
+<li>2PL的限制：如SHRINKING阶段，RR隔离级别下不允许新加任何锁，RC隔离级别下不允许加新的X锁；）</li>
+<li>行锁：如果要加行锁，需要先判断table上时候有更高级的锁，比如要对行加S锁，就需要先获得所在table的S\X\SIX\IS\IX锁（这个地方我实现的时候没写全，导致gradescope死活过不了，我花了一天时间没发现这个低级错误，最后通过打印日志发现了问题）</li>
+</ul>
+</li>
+<li>获取加锁对象的LockRequestQueue</li>
+<li>尝试加锁，这里根据锁队列中是否已经存在该transaction的锁请求可以分为“锁升级”和普通加锁的情况：
+<ul>
+<li>如果锁队列中发现已经该事务获得过锁，则是锁升级，首先需要判断是不是合法的锁升级，比如S锁只能升级为SIX/X。（PS：对于锁升级，我曾经疑惑，为什么X锁不能“倒着升级”为S锁呢？答：首先，“升级”成更弱的锁本身就是有问题的，应为升级意味着需要放弃原来的锁，2PL中，如果放弃X锁，那意味着可以出现脏读的问题。另外，Discord里也有人讨论了downgrade的问题，TA的回答是不需要实现，难道真的有lock downgrade吗？）。upgrade的过程是：将原来的锁请求从队列中删除，然后放在当前第一个not granted的请求前面！这点很重要，这么做的原因，后面我会详细展开。</li>
+<li>如果该事务没有获取过锁，那就在队列末尾新加一个锁请求。</li>
+</ul>
+</li>
+<li>判断是否能获取锁，如果不能获取锁，则睡眠在condition varible上，等待前面的请求unlock时唤醒，如此循环，直到获取锁或者被（deadlock detector强制) Abort为止。这个部分代码很简单，但是我认为是lock manager最核心的一部分，代码放在下面做参考，按照这种实现，就能保证锁的顺序基本是FIFO，但是也允许并发地获取，比如多个S请求，可以同时获取锁，而不受严格的FIFO顺序限制。</li>
+<li>如果获取锁成功，则需要维护事务的锁集合。</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 循环判断条件
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>	<span style="color:#66d9ef">while</span> (<span style="color:#f92672">!</span><span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>GrantRequest(new_req<span style="color:#f92672">-&gt;</span>txn_id_, new_req<span style="color:#f92672">-&gt;</span>lock_mode_)) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">-&gt;</span>cv_.wait(target_lock);
+</span></span><span style="display:flex;"><span>        ...
+</span></span><span style="display:flex;"><span>     }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 判断是否能获取锁
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">auto</span> LockManager<span style="color:#f92672">::</span>LockRequestQueue<span style="color:#f92672">::</span>GrantRequest(txn_id_t id, LockMode lock_mode) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">bool</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">auto</span> <span style="color:#66d9ef">const</span> <span style="color:#f92672">&amp;</span>req : request_queue_) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (req<span style="color:#f92672">-&gt;</span>txn_id_ <span style="color:#f92672">==</span> id) {
+</span></span><span style="display:flex;"><span>      BUSTUB_ENSURE(<span style="color:#f92672">!</span>req<span style="color:#f92672">-&gt;</span>granted_, <span style="color:#e6db74">&#34;GrantRequest: already granted!&#34;</span>);
+</span></span><span style="display:flex;"><span>      req<span style="color:#f92672">-&gt;</span>granted_ <span style="color:#f92672">=</span> true;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> true;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>IsCompatible(lock_mode, req<span style="color:#f92672">-&gt;</span>lock_mode_)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> false;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  UNREACHABLE(<span style="color:#e6db74">&#34;GrantRequest Error!&#34;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>以上就是加锁的流程，具体实现上各种都是大同小异，我一共实现2版，区别在于如何判断一个锁请求是否是一个upgrade请求。我最开始是通过直接查询lock_set来判断是否该事务已经持有锁的，这样，对于不需要upgrade的锁请求，就不需要遍历lock_queue了，直接append在最后即可。但是后来我想，遍历lock_queue链表的开销相比去查询lock_set来说，应该很小，所以这应该是over-optimize了。所以我后来又改了一版，直接遍历lock_queue, 如果没找到对应transaction id的，就说明不是upgrade，append到后面就好了。</p>
+<p><strong>Q:为什么同时只能有一个upgrade请求？</strong></p>
+<p>A:首先，其实可以通过新增一条upgrade队列来允许多个请求同时升级（discord中有讨论）。如果按照bustub现在的框架，只有一条队列，比如在RR隔离级别下，如果发生S到X的锁升级，那么需要先放弃S锁，并作为第一个未granted的请求放在队列前部，保证第一个获取X锁；那如果这时候又有个新的upgrade请求（也是从S升级到X）出现，那么这个新的请求就会被放在更前面，也就是说有更高的优先级，它会第一个获取X锁，并修改内容，这样就破坏了前一个事务的Repeatable Read的保证。</p>
+<p>对于解锁的流程，很简单，如下：</p>
+<ul>
+<li>如果是表锁，先判断是否解锁。如果事务还持有表下面的行锁，那这就是不允许的。</li>
+<li>遍历request_queue，看有没有持有锁。
+<ul>
+<li>如果没有持有锁，则throw一个异常；</li>
+<li>如果有锁，则将该请求删除，根据isolation level来更新State，解锁成功！</li>
+</ul>
+</li>
+</ul>
+<p>Q:事务的锁集合有必要存在吗？</p>
+<p>A:也可以不要，但是会造成性能上的损失。不维护锁集合的话，在判断一个事务是否持有对于一个对象的锁时，需要遍历request队列，这会造成锁的大量争用，对于存在热点数据时，性能损失会很严重。</p>
+<h3 id="task-2-deadlockmanager">Task #2 DeadLockManager</h3>
+<p>最开始我以为这个部分是最难的。最后发现这个部分用的时间最少，原因是目标很明确，任务也很简单——根据整个lock_manager维护的所有lock_queue来建一个有向图，然后用DFS来判断是否有环。如果有环的话就将transaction_id最大的事务（也就是youngest的事务) abort掉，破坏环。</p>
+<p>值得注意的是，后台deadlock detection线程每隔一个interval苏醒后，会建一个完整的图。这个图中可能有多个环。bustub是要求按照transaction_id从小开始来进行dfs搜索，每搜到一个环，就abort掉该环中yongest的事务，并更新图，如此往复，直到破掉所有的环，才会继续休眠。</p>
+<h3 id="task-3---concurrent-query-execution">Task #3 - Concurrent Query Execution</h3>
+<p>该任务是修改上层的executor，在合适的地方Lock和Unlock，来保证各种隔离级别。具体来说，要修改insert\delete\seqscan三个算子。一开始，我觉得insert和delete直接给表加X锁，seqscan直接给表加S锁就好了。结果通过不了测例，后来按照discord里说的，insert和delete给表加IX锁，insert对insert后的数据加行锁，delete也是。seqscan的话对表加IS锁，然后每读一个row前都先尝试给row加读锁，读到后就能unlock了。这种细粒度的加锁方式是为了提高并发度。</p>
+<p>注意，框架的insert有点问题。这个在discord上也有人提出了。就是TableHeap::InsetTuple这个函数内部没有加锁，导致只能先物理上InsertTuple才加X锁，这是框架的缺陷，TA说这是一个long term bug(用2PL不能解决？），可能在后面通过MVCC来避免。我个人感觉只要在InsertTuple内部加上对应的逻辑就好了，没那么复杂？</p>
+<p>另外，在这部分的框架设计上，个人认为bustub也不够优雅。因为在executor部分加锁时，还需要加入判断是否持有更高级的锁的逻辑。我认为这些逻辑完全可以下移到LockTable和LockRow中，LockTable和LockRow的行为就变成：如果我已经获取了更高级别的锁，可以直接返回true。将transaction持有的锁集合对上层透明化。</p>
+<h3 id="茶余饭后">茶余饭后</h3>
+<p>今天是Oceanbase数据库比赛的东北大学宣讲专场，有两位本校学长回来宣讲，两位都是先入职的华为，然后跳槽到了OB。从他们口中得知，Oceanbase的工作条件很好，公司主张的是“信任”的文化，没有打卡制度，员工们一般九十点到，晚上七八点就下班，如果八点走，还能报销打车费，另外，周末不加班！看着真不错。不过应该门槛比较高，听学长说本科去工作或者实习的都比较少，原因就是本科生对于某个领域，知识积累得不够吧。所以学长给我的建议是，看准一个方向一个岗位，然后去深入了解，对口会让工作好找些。</p>
+<p>至于技术上（应该说是行业了解方面）学到的东西，我了解到了OB和polardb在定位上的不同，polardb是云原生的，而OB是面向金融行业的（起码最开始是的），所以和云的关系不大，银行都是用自己的服务器。OB最开始是kv数据库，后面发展为了支持SQL的数据库，核心的技术点是通过paxos实现容灾。</p>
 </div><div class="post-footer" id="post-footer">
     <div class="post-info">
         <div class="post-info-line">
