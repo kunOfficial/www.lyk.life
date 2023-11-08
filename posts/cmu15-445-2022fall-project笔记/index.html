@@ -33,7 +33,7 @@ Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分�
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "http:\/\/lyk.github.io\/posts\/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0\/"
-        },"genre": "posts","wordcount":  729 ,
+        },"genre": "posts","wordcount":  807 ,
         "url": "http:\/\/lyk.github.io\/posts\/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0\/","datePublished": "2023-08-09T15:29:40+08:00","dateModified": "2023-08-09T15:29:40+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
@@ -75,7 +75,7 @@ Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分�
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">CMU15-445 (2022fall) project笔记</h1><div class="post-meta">
             <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
-            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-09">2023-08-09</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;729 words&nbsp;
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-09">2023-08-09</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;807 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;4 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
                 <div class="details-summary toc-title">
@@ -112,6 +112,7 @@ Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分�
         <li><a href="#task-1-lock-manager">Task #1 Lock Manager</a></li>
         <li><a href="#task-2-deadlockmanager">Task #2 DeadLockManager</a></li>
         <li><a href="#task-3---concurrent-query-execution">Task #3 - Concurrent Query Execution</a></li>
+        <li><a href="#about-rollback">about rollback</a></li>
         <li><a href="#茶余饭后">茶余饭后</a></li>
       </ul>
     </li>
@@ -371,6 +372,30 @@ Project #1 - Buffer Pool 从这个部分开始，就进入Bustub的主体部分�
 <p>该任务是修改上层的executor，在合适的地方Lock和Unlock，来保证各种隔离级别。具体来说，要修改insert\delete\seqscan三个算子。一开始，我觉得insert和delete直接给表加X锁，seqscan直接给表加S锁就好了。结果通过不了测例，后来按照discord里说的，insert和delete给表加IX锁，insert对insert后的数据加行锁，delete也是。seqscan的话对表加IS锁，然后每读一个row前都先尝试给row加读锁，读到后就能unlock了。这种细粒度的加锁方式是为了提高并发度。</p>
 <p>注意，框架的insert有点问题。这个在discord上也有人提出了。就是TableHeap::InsetTuple这个函数内部没有加锁，导致只能先物理上InsertTuple才加X锁，这是框架的缺陷，TA说这是一个long term bug(用2PL不能解决？），可能在后面通过MVCC来避免。我个人感觉只要在InsertTuple内部加上对应的逻辑就好了，没那么复杂？</p>
 <p>另外，在这部分的框架设计上，个人认为bustub也不够优雅。因为在executor部分加锁时，还需要加入判断是否持有更高级的锁的逻辑。我认为这些逻辑完全可以下移到LockTable和LockRow中，LockTable和LockRow的行为就变成：如果我已经获取了更高级别的锁，可以直接返回true。将transaction持有的锁集合对上层透明化。</p>
+<h3 id="about-rollback">about rollback</h3>
+<p>并发控制中其实有很重要的两个函数Commit和Abort，框架都帮我们实现好了，降低了实现难度，但我觉得还是有必要关注一下。特别是Abort，涉及到事务操作的roll back。bustub中是如何实现roll back的呢？答案是每个事务维护一个write_set，对于Insert\Delete\Update操作都记录下必要信息（WriteRecord)，便于Undo。</p>
+<p>记录信息的过程框架已经实现了，比如在insert_tuple里有：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>  <span style="color:#75715e">// Update the transaction&#39;s write set.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  txn<span style="color:#f92672">-&gt;</span>GetWriteSet()<span style="color:#f92672">-&gt;</span>emplace_back(<span style="color:#f92672">*</span>rid, WType<span style="color:#f92672">::</span>INSERT, Tuple{}, <span style="color:#66d9ef">this</span>);
+</span></span></code></pre></div><p>write_set是一共deque<!-- raw HTML omitted -->，其实这里就是用作一个stack。</p>
+<p>Abort中回滚的逻辑如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>  <span style="color:#75715e">// Undo the writes
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">while</span> (<span style="color:#f92672">!</span>table_write_set<span style="color:#f92672">-&gt;</span>empty()) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">auto</span> <span style="color:#f92672">&amp;</span>item <span style="color:#f92672">=</span> table_write_set<span style="color:#f92672">-&gt;</span>back();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">auto</span> <span style="color:#f92672">*</span>table <span style="color:#f92672">=</span> item.table_;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (item.wtype_ <span style="color:#f92672">==</span> WType<span style="color:#f92672">::</span>DELETE) {
+</span></span><span style="display:flex;"><span>      table<span style="color:#f92672">-&gt;</span>RollbackDelete(item.rid_, txn);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> <span style="color:#a6e22e">if</span> (item.wtype_ <span style="color:#f92672">==</span> WType<span style="color:#f92672">::</span>INSERT) {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Note that this also releases the lock when holding the page latch.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      table<span style="color:#f92672">-&gt;</span>ApplyDelete(item.rid_, txn);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> <span style="color:#a6e22e">if</span> (item.wtype_ <span style="color:#f92672">==</span> WType<span style="color:#f92672">::</span>UPDATE) {
+</span></span><span style="display:flex;"><span>      table<span style="color:#f92672">-&gt;</span>UpdateTuple(item.tuple_, item.rid_, txn);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    table_write_set<span style="color:#f92672">-&gt;</span>pop_back();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  table_write_set<span style="color:#f92672">-&gt;</span>clear();
+</span></span></code></pre></div><p>当然，index的更新也得回滚，此处省略了。</p>
+<p>值得注意的是，bustub并没有支持故障恢复。如果要做故障恢复，那这些WriteRecord不止要在内存里，还得写到磁盘中的log日志中；commit和abort也要写日志。</p>
 <h3 id="茶余饭后">茶余饭后</h3>
 <p>今天是Oceanbase数据库比赛的东北大学宣讲专场，有两位本校学长回来宣讲，两位都是先入职的华为，然后跳槽到了OB。从他们口中得知，Oceanbase的工作条件很好，公司主张的是“信任”的文化，没有打卡制度，员工们一般九十点到，晚上七八点就下班，如果八点走，还能报销打车费，另外，周末不加班！看着真不错。不过应该门槛比较高，听学长说本科去工作或者实习的都比较少，原因就是本科生对于某个领域，知识积累得不够吧。所以学长给我的建议是，看准一个方向一个岗位，然后去深入了解，对口会让工作好找些。</p>
 <p>至于技术上（应该说是行业了解方面）学到的东西，我了解到了OB和polardb在定位上的不同，polardb是云原生的，而OB是面向金融行业的（起码最开始是的），所以和云的关系不大，银行都是用自己的服务器。OB最开始是kv数据库，后面发展为了支持SQL的数据库，核心的技术点是通过paxos实现容灾。</p>
