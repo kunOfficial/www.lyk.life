@@ -2,11 +2,12 @@
     xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
     xmlns:xhtml="http://www.w3.org/1999/xhtml"
     ><url>
-            <loc>http://lyk.github.io/</loc><lastmod>2023-11-08T11:55:30&#43;08:00</lastmod></url><url>
-            <loc>http://lyk.github.io/posts/miniob%E5%88%9D%E8%B5%9B%E8%AE%B0%E5%BD%95/</loc><lastmod>2023-11-08T11:55:30&#43;08:00</lastmod></url><url>
-            <loc>http://lyk.github.io/posts/</loc><lastmod>2023-11-08T11:55:30&#43;08:00</lastmod></url><url>
+            <loc>http://lyk.github.io/</loc><lastmod>2023-11-24T23:47:28&#43;08:00</lastmod></url><url>
+            <loc>http://lyk.github.io/posts/kvserver/</loc><lastmod>2023-11-24T23:47:28&#43;08:00</lastmod></url><url>
+            <loc>http://lyk.github.io/posts/</loc><lastmod>2023-11-24T23:47:28&#43;08:00</lastmod></url><url>
+            <loc>http://lyk.github.io/posts/miniob/</loc><lastmod>2023-11-08T11:55:30&#43;08:00</lastmod></url><url>
             <loc>http://lyk.github.io/posts/raft/</loc><lastmod>2023-08-27T12:22:37&#43;08:00</lastmod></url><url>
-            <loc>http://lyk.github.io/posts/cmu15-445-2022fall-project%E7%AC%94%E8%AE%B0/</loc><lastmod>2023-08-09T15:29:40&#43;08:00</lastmod></url><url>
+            <loc>http://lyk.github.io/posts/cmu15445-2022fall/</loc><lastmod>2023-08-09T15:29:40&#43;08:00</lastmod></url><url>
             <loc>http://lyk.github.io/posts/map_reduce/</loc><lastmod>2023-08-08T11:55:30&#43;08:00</lastmod></url><url>
             <loc>http://lyk.github.io/posts/first_post/</loc><lastmod>2023-03-21T16:06:40&#43;08:00</lastmod></url><url>
             <loc>http://lyk.github.io/categories/</loc></url><url>

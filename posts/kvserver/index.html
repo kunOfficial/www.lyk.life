@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <title>MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记 - lyk の blog</title><meta name="Description" content="This is my cool site"><meta property="og:title" content="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记" />
+<meta property="og:description" content="MIT 6.824 2020 (3) Fault-tolerant Key/Value Service实现笔记 该博客主要关注功能实现，Read Lease等优化之后有时间填坑：）
+Basic Q&amp;A 首先需要问自己这些问题，想清楚后后就能理解server层和raft层之间的交互逻辑了。
+Q:对于client来说，在进行read请求时，是向leader发送（保证得到最新的数据），还是向任意一个节点发送呢？
+A:client的读写请求都向leader发送，如果不知道leader是谁，就随机向一个server进行询问。raft通过这种方式保证了线性语义（强一致性），但是损失了读性能（这与zookeeper是相反的）。
+Q:raft在进行写请求的时候，如果随机选中了一个旧的leader（比如在一个非majority的parition中的旧leader)，那写请求的拒绝执行是通过什么机制实现的？
+A:请求的回复应该是阻塞的，得等到leader确认该log被复制到大多数replica时，才能给出一个promise；所以，作为leader的server需要有处理请求超时的逻辑，防止自己是minority的旧leader，无法commit客户端的请求却久久不释放客户端连接。
+Q:为什么每个leader的term期开始时都要追加一个no-op log？
+A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index, 应该是一个道理）
+Q:server需要维护每个client的最后请求的序列号一防止重复执行，那这个信息是由leader在AP rpc里同步到followers吗？
+A:对，所以ClientId和Seq这两个信息都要作为log entry的一部分，followers commit的时候，server层可以可以根据根据这个进行去重。防止一个请求被apply多次。
+开始编码前的建议 个人感觉这部分比lab2要难调试一些，回顾起来，主要有两方面：遇到了很多死锁的问题；加上server和client后，log更多了，看起来比较吃力。所以，有以下推荐：
+跑测试的时候，把-race打开
+用logrus库来代替std log，支持多日志级别
+调试时借助死锁检测工具，如go-deadlock
+Part A: Key/value service without log compaction 线性一致性 要满足线性一致性，可以理解为对于同一个数据对象，一个Read请求，一定要读到“在时间上最新的”已经返回Success的write请求的数据。考虑这么一个场景，网络分区发生了，一个follower被选举为了新的leader，他的commit index其实可能是小于旧leader的，所以他的数据其实是旧的，那么如果这时候来了一个Read请求，他该如何操作，才能保证这个Read请求读到的是最新的数据呢？
+最自然的想法就是将read也作为一个cmd，放在log里进行replica，这个log commit后，再返回read的结果，这样就能保证读到的是最新的数据了。这个线性顺序也就是log提交的顺序。
+当然，这不是必须的，有Read Lease/ follower read等优化。
+请求超时 做partition3A时遇到了问题处于minority的leader旧久久不释放客户端请求的情况，这里我为server端增加了一个处理请求超时时间为1s，过了1s如果leader没有收到raft层的consensus，直接返回timeout Err。然后为client端增加超时换target server重试的逻辑。
+添加NO-OP log的位置 2023.11.17 要在两个地方加NO-OP日志, 一个是选举成功成为新leader后，另外一种作为leader，收到其他节点的RV rpc请求，发现Term比自己高，但是其log日志落后所以拒绝时，要更新自己的CurrentTerm，然后这里还要添加NO-OP!
+我的设计中，希望重复的log不要放到raft的log中，所以我是在kv.rf.Start前就做了去重操作；清华佬的想法相反，在log commit并且apply时再进行去重操作。
+记录结果 关于是否需要记录最后一次session的结果的问题，我之前没有想过，因为我认为记录的是旧的结果，这会违反线性一致性。举个例子，比如一个Get操作，第一次超时了，但是leader成功commit并记录了结果，那Get操作重试时，如果直接返回这个结果，那这就是旧数据，因为client重试的这段时间可能这个数据又发生改变了。但是后来偶然看到这位大佬认为需要记录结果。论点如下：
+为什么要记录应用的结果？因为通过这种方式同一个命令的多次 apply 最终只会实际应用到状态机上一次，之后相同命令 apply 的时候实际上是不应用到状态机上的而是直接返回的，那么这时候应该返回什么呢？直接返回成功吗？不行，如果第一次应用时状态机报了什么例如 key not exist 等业务上的错而没有被记录，之后就很难捕捉到这个执行结果了，所以也需要将应用结果保存下来。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://lyk.github.io/posts/kvserver/" /><meta property="og:image" content="http://lyk.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2023-11-24T23:47:28+08:00" />
+<meta property="article:modified_time" content="2023-11-24T23:47:28+08:00" /><meta property="og:site_name" content="My cool site" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="http://lyk.github.io/logo.png"/>
+
+<meta name="twitter:title" content="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记"/>
+<meta name="twitter:description" content="MIT 6.824 2020 (3) Fault-tolerant Key/Value Service实现笔记 该博客主要关注功能实现，Read Lease等优化之后有时间填坑：）
+Basic Q&amp;A 首先需要问自己这些问题，想清楚后后就能理解server层和raft层之间的交互逻辑了。
+Q:对于client来说，在进行read请求时，是向leader发送（保证得到最新的数据），还是向任意一个节点发送呢？
+A:client的读写请求都向leader发送，如果不知道leader是谁，就随机向一个server进行询问。raft通过这种方式保证了线性语义（强一致性），但是损失了读性能（这与zookeeper是相反的）。
+Q:raft在进行写请求的时候，如果随机选中了一个旧的leader（比如在一个非majority的parition中的旧leader)，那写请求的拒绝执行是通过什么机制实现的？
+A:请求的回复应该是阻塞的，得等到leader确认该log被复制到大多数replica时，才能给出一个promise；所以，作为leader的server需要有处理请求超时的逻辑，防止自己是minority的旧leader，无法commit客户端的请求却久久不释放客户端连接。
+Q:为什么每个leader的term期开始时都要追加一个no-op log？
+A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index, 应该是一个道理）
+Q:server需要维护每个client的最后请求的序列号一防止重复执行，那这个信息是由leader在AP rpc里同步到followers吗？
+A:对，所以ClientId和Seq这两个信息都要作为log entry的一部分，followers commit的时候，server层可以可以根据根据这个进行去重。防止一个请求被apply多次。
+开始编码前的建议 个人感觉这部分比lab2要难调试一些，回顾起来，主要有两方面：遇到了很多死锁的问题；加上server和client后，log更多了，看起来比较吃力。所以，有以下推荐：
+跑测试的时候，把-race打开
+用logrus库来代替std log，支持多日志级别
+调试时借助死锁检测工具，如go-deadlock
+Part A: Key/value service without log compaction 线性一致性 要满足线性一致性，可以理解为对于同一个数据对象，一个Read请求，一定要读到“在时间上最新的”已经返回Success的write请求的数据。考虑这么一个场景，网络分区发生了，一个follower被选举为了新的leader，他的commit index其实可能是小于旧leader的，所以他的数据其实是旧的，那么如果这时候来了一个Read请求，他该如何操作，才能保证这个Read请求读到的是最新的数据呢？
+最自然的想法就是将read也作为一个cmd，放在log里进行replica，这个log commit后，再返回read的结果，这样就能保证读到的是最新的数据了。这个线性顺序也就是log提交的顺序。
+当然，这不是必须的，有Read Lease/ follower read等优化。
+请求超时 做partition3A时遇到了问题处于minority的leader旧久久不释放客户端请求的情况，这里我为server端增加了一个处理请求超时时间为1s，过了1s如果leader没有收到raft层的consensus，直接返回timeout Err。然后为client端增加超时换target server重试的逻辑。
+添加NO-OP log的位置 2023.11.17 要在两个地方加NO-OP日志, 一个是选举成功成为新leader后，另外一种作为leader，收到其他节点的RV rpc请求，发现Term比自己高，但是其log日志落后所以拒绝时，要更新自己的CurrentTerm，然后这里还要添加NO-OP!
+我的设计中，希望重复的log不要放到raft的log中，所以我是在kv.rf.Start前就做了去重操作；清华佬的想法相反，在log commit并且apply时再进行去重操作。
+记录结果 关于是否需要记录最后一次session的结果的问题，我之前没有想过，因为我认为记录的是旧的结果，这会违反线性一致性。举个例子，比如一个Get操作，第一次超时了，但是leader成功commit并记录了结果，那Get操作重试时，如果直接返回这个结果，那这就是旧数据，因为client重试的这段时间可能这个数据又发生改变了。但是后来偶然看到这位大佬认为需要记录结果。论点如下：
+为什么要记录应用的结果？因为通过这种方式同一个命令的多次 apply 最终只会实际应用到状态机上一次，之后相同命令 apply 的时候实际上是不应用到状态机上的而是直接返回的，那么这时候应该返回什么呢？直接返回成功吗？不行，如果第一次应用时状态机报了什么例如 key not exist 等业务上的错而没有被记录，之后就很难捕捉到这个执行结果了，所以也需要将应用结果保存下来。"/>
+<meta name="application-name" content="My cool site">
+<meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/kvserver/" /><link rel="prev" href="http://lyk.github.io/posts/miniob/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记",
+        "inLanguage": "en-us",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "http:\/\/lyk.github.io\/posts\/kvserver\/"
+        },"genre": "posts","wordcount":  210 ,
+        "url": "http:\/\/lyk.github.io\/posts\/kvserver\/","datePublished": "2023-11-24T23:47:28+08:00","dateModified": "2023-11-24T23:47:28+08:00","publisher": {
+            "@type": "Organization",
+            "name": ""},"author": {
+                "@type": "Person",
+                "name": "lyk"
+            },"description": ""
+    }
+    </script></head>
+    <body data-header-desktop="fixed" data-header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('dark' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'dark' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="lyk の blog">lyk的学习笔记</a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a class="menu-item" href="/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                    <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+                </a></div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="lyk の blog">lyk的学习笔记</a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><a class="menu-item" href="/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+            </a></div>
+    </div>
+</header><main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">Contents</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-11-24">2023-11-24</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;210 words&nbsp;
+                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;One minute&nbsp;</div>
+        </div><div class="details toc" id="toc-static"  data-kept="">
+                <div class="details-summary toc-title">
+                    <span>Contents</span>
+                    <span><i class="details-icon fas fa-angle-right" aria-hidden="true"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#basic-qa">Basic Q&amp;A</a></li>
+    <li><a href="#开始编码前的建议">开始编码前的建议</a></li>
+    <li><a href="#part-a-keyvalue-service-without-log-compaction">Part A: Key/value service without log compaction</a>
+      <ul>
+        <li><a href="#线性一致性">线性一致性</a></li>
+        <li><a href="#请求超时">请求超时</a></li>
+        <li><a href="#添加no-op-log的位置">添加NO-OP log的位置</a></li>
+        <li><a href="#记录结果">记录结果</a></li>
+        <li><a href="#cmd去重的时机">cmd去重的时机</a></li>
+      </ul>
+    </li>
+    <li><a href="#part-b-keyvalue-service-with-log-compaction">Part B: Key/value service with log compaction</a>
+      <ul>
+        <li><a href="#basic-snapshot">basic snapshot</a></li>
+        <li><a href="#installsnapshot-rpc">InstallSnapshot RPC</a></li>
+      </ul>
+    </li>
+    <li><a href="#future-work">future work</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><h1 id="mit-6824-2020-3-fault-tolerant-keyvalue-service实现笔记">MIT 6.824 2020 (3) Fault-tolerant Key/Value Service实现笔记</h1>
+<p>该博客主要关注功能实现，Read Lease等优化之后有时间填坑：）</p>
+<h2 id="basic-qa">Basic Q&amp;A</h2>
+<p>首先需要问自己这些问题，想清楚后后就能理解server层和raft层之间的交互逻辑了。</p>
+<p>Q:对于client来说，在进行read请求时，是向leader发送（保证得到最新的数据），还是向任意一个节点发送呢？</p>
+<p>A:client的读写请求都向leader发送，如果不知道leader是谁，就随机向一个server进行询问。raft通过这种方式保证了线性语义（强一致性），但是损失了读性能（这与zookeeper是相反的）。</p>
+<p>Q:raft在进行写请求的时候，如果随机选中了一个旧的leader（比如在一个非majority的parition中的旧leader)，那写请求的拒绝执行是通过什么机制实现的？</p>
+<p>A:请求的回复应该是阻塞的，得等到leader确认该log被复制到大多数replica时，才能给出一个promise；所以，作为leader的server需要有处理请求超时的逻辑，防止自己是minority的旧leader，无法commit客户端的请求却久久不释放客户端连接。</p>
+<p>Q:为什么每个leader的term期开始时都要追加一个no-op log？</p>
+<p>A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index, 应该是一个道理）</p>
+<p>Q:server需要维护每个client的最后请求的序列号一防止重复执行，那这个信息是由leader在AP rpc里同步到followers吗？</p>
+<p>A:对，所以ClientId和Seq这两个信息都要作为log entry的一部分，followers commit的时候，server层可以可以根据根据这个进行去重。防止一个请求被apply多次。</p>
+<h2 id="开始编码前的建议">开始编码前的建议</h2>
+<p>个人感觉这部分比lab2要难调试一些，回顾起来，主要有两方面：遇到了很多死锁的问题；加上server和client后，log更多了，看起来比较吃力。所以，有以下推荐：</p>
+<ul>
+<li>
+<p>跑测试的时候，把-race打开</p>
+</li>
+<li>
+<p>用<a href="github.com/sirupsen/logrus" rel="">logrus库</a>来代替std log，支持多日志级别</p>
+</li>
+<li>
+<p>调试时借助死锁检测工具，如<a href="github.com/sasha-s/go-deadlock" rel="">go-deadlock</a></p>
+</li>
+</ul>
+<h2 id="part-a-keyvalue-service-without-log-compaction">Part A: Key/value service without log compaction</h2>
+<h3 id="线性一致性">线性一致性</h3>
+<p>要满足线性一致性，可以理解为对于同一个数据对象，一个Read请求，一定要读到“在时间上最新的”已经返回Success的write请求的数据。考虑这么一个场景，网络分区发生了，一个follower被选举为了新的leader，他的commit index其实可能是小于旧leader的，所以他的数据其实是旧的，那么如果这时候来了一个Read请求，他该如何操作，才能保证这个Read请求读到的是最新的数据呢？</p>
+<p>最自然的想法就是将read也作为一个cmd，放在log里进行replica，这个log commit后，再返回read的结果，这样就能保证读到的是最新的数据了。这个线性顺序也就是log提交的顺序。</p>
+<p>当然，这不是必须的，有Read Lease/ follower read等优化。</p>
+<h3 id="请求超时">请求超时</h3>
+<p>做partition3A时遇到了问题处于minority的leader旧久久不释放客户端请求的情况，这里我为server端增加了一个处理请求超时时间为1s，过了1s如果leader没有收到raft层的consensus，直接返回timeout Err。然后为client端增加超时换target server重试的逻辑。</p>
+<h3 id="添加no-op-log的位置">添加NO-OP log的位置</h3>
+<p>2023.11.17 要在两个地方加NO-OP日志, 一个是选举成功成为新leader后，另外一种作为leader，收到其他节点的RV rpc请求，发现Term比自己高，但是其log日志落后所以拒绝时，要更新自己的CurrentTerm，然后这里还要添加NO-OP!</p>
+<p>我的设计中，希望重复的log不要放到raft的log中，所以我是在kv.rf.Start前就做了去重操作；清华佬的想法相反，在log commit并且apply时再进行去重操作。</p>
+<h3 id="记录结果">记录结果</h3>
+<p>关于是否需要记录最后一次session的结果的问题，我之前没有想过，因为我认为记录的是旧的结果，这会违反线性一致性。举个例子，比如一个Get操作，第一次超时了，但是leader成功commit并记录了结果，那Get操作重试时，如果直接返回这个结果，那这就是旧数据，因为client重试的这段时间可能这个数据又发生改变了。但是后来偶然看到这位<a href="https://github.com/OneSizeFitsQuorum/MIT6.824-2021/blob/master/docs/lab3.md" target="_blank" rel="noopener noreffer ">大佬</a>认为需要记录结果。论点如下：</p>
+<blockquote>
+<p>为什么要记录应用的结果？因为通过这种方式同一个命令的多次 apply 最终只会实际应用到状态机上一次，之后相同命令 apply 的时候实际上是不应用到状态机上的而是直接返回的，那么这时候应该返回什么呢？直接返回成功吗？不行，如果第一次应用时状态机报了什么例如 key not exist 等业务上的错而没有被记录，之后就很难捕捉到这个执行结果了，所以也需要将应用结果保存下来。</p>
+</blockquote>
+<p>我觉得有道理，所以记录结果是必要的。</p>
+<p>那么，这样满不满足线性一致性呢？</p>
+<p>其实如果将client和server看做是一个整体系统，那么实际上是满足线性一致性的。从调用client的Get和Append、Put的接口的角度来说，由于client的逻辑中向外部隐藏了超时重试的逻辑，知道成功得到结果才会返回给调用者，所以从外界来看，这是个线性一致的系统（包括测例也是这样测的）。由于测例里就是从调用client的接口测的，所以测出来是满足线性一致性的。</p>
+<p>我之前没有记录结果，依然通过了所有测例，究其原因，是因为：Get接口本身就不需要，读最新的数据是符合线性一致性的；而在这个lab里，Put,Append是一定会成功的，即一定能够成功执行，不会出现‘ key not exist 等业务上的错而没有被记录’这种情况。如果将Append语义改为不存在key,则返回KeyNotExistErr的话，那就必须记录结果了。</p>
+<h3 id="cmd去重的时机">cmd去重的时机</h3>
+<p>2023.11.18 遇到了问题，发生网络分区时，leader发生变化后，原leader上没处理完的session会timeout，如果该session对应的日志已经成功replicate了但未提交，那么其对应replica的raft日志中也有这条日志了，且没提交，如果该replica在网络分区后被选为了新的leader，由于server层对下层raft中未提交的日志是无感知的，如果此时之前timeout的client如果在这个新leader上进行重试，重新开始这个session，由于server层无法进行去重判断，也就无法保证其向下传递的raft日志是唯一的！</p>
+<p>结论：去重操作无法在建立session时判断，raft中的log也无法保证唯一性，只能将去重操作后移到提交时进行。</p>
+<p>2023.11.20</p>
+<p>发现下层raft有bug，即leader在等待AppendEntires回复时，由于会释放自己的锁，所以这段时间内自己的term、log都有可能改变，在接到回复后判断要考虑周全。这种情形在分布式系统中应该很常见。</p>
+<p>另外一个细节问题，session需要对结果结果进行过滤，Result中要加入Client+Seq信息来表示这是个结果的Seq，session收到的如果是旧的Seq则需要丢弃，并继续等待。</p>
+<p>测强一致性的这个测试点 TestPersistPartitionUnreliableLinearizable3A 官方代码设计得很好，用15个节点并发对7个server发送随机请求，并记录下每个请求开始和结束的时间点，如果测例发现你的实现不满足线性一致性，那最终会生成一个Porcupine的html文件，将整个过程可视化！第一眼看到有点惊艳的，就像当时看CMU15445 bustub的B+树的可视化工具一样，不知道问什么对这种visualization毫无抵抗力。我一开始没过这个测例，马上发现我把Append的语义理解错了，Append在key不存在时，应该相当于Put，而我是把他当异常处理的，修改后就过了。</p>
+<h2 id="part-b-keyvalue-service-with-log-compaction">Part B: Key/value service with log compaction</h2>
+<h3 id="basic-snapshot">basic snapshot</h3>
+<p>Snapshot可以视为从index=0开始的一段连续log的compaction结果，由于raft层是对log内容无感知的，所以这个snapshot是由上层进行，然后通知raft层丢弃之前的log以减少raftstate的存储空间的。</p>
+<p>值得注意的点：</p>
+<p>Snapshot是对于已经Applied的log来说的，不会对没有提交的log进行compaction。</p>
+<p>Snapshot中要存的信息：lastIncludedIndex, lastIncludedTerm，data。存lastIncludedIndex和lastIncludedTerm的原因论文中有讲，是为了在Snapshot后没有新log的情况下，能够处理RV和AP的rpc请求。我自己的实现中，将lastIncludedIndex和lastIncludedTerm存在了raft state中。</p>
+<p>Snapshot是快照，持久化时应该将log清零并持久化，所以应该同时将被改变的state也持久化。</p>
+<p>Snapshot和raftstate是分开存储的，正常情况下只需要持久化raftstate，只有compaction时才会涉及到snapshot。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">Persister</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">mu</span>        <span style="color:#a6e22e">sync</span>.<span style="color:#a6e22e">Mutex</span>
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">raftstate</span> []<span style="color:#66d9ef">byte</span>
+</span></span><span style="display:flex;"><span>   <span style="color:#a6e22e">snapshot</span>  []<span style="color:#66d9ef">byte</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>要做的事情，server层snapshot的持久化实现，如下:</p>
+<ul>
+<li>server层根据 raft层提供的接口，比如 rf.NeedCompaction(maxraftstate)来判断是否需要进行compaction,，如果大于maxraftstate了，则返回true。NeedCompaction的调用位置可以是server层每次apply新log后。</li>
+<li>raft层实现接口SaveStateAndSnapshot(snapshot_last_index int, data map[string]string)，该函数阻塞式地进行持久化，将写入文件</li>
+</ul>
+<p>maxraftstate的含义如下，即被持久化的raft state的大小。raft state包括 Term、votedFor、log，之前做lab 2的persist中已经涉及过了。</p>
+<blockquote>
+<p><code>maxraftstate</code> indicates the maximum allowed size of your persistent Raft state in bytes (including the log, but not including snapshots)</p>
+</blockquote>
+<ul>
+<li>raft层log的总长度的需要提供接口GetLen()，total_len = snapshot_len + len(log)</li>
+<li>server恢复时，首先需要使用kv.kvdata = rf.ReadSnapshot()来读取快照。</li>
+</ul>
+<h3 id="installsnapshot-rpc">InstallSnapshot RPC</h3>
+<p>由于Snapshot的形成时机是由上层server层判断的，各个server节点可以根据本节点的raft state大小独立进行Snapshot。一个leader在进行snapshot后，会丢弃之前的已经commited的log，如果此时有落后很多的或者新加入的follower需要snapshot之前的log的话（nextIndex &lt; snapshot.last_index)，leader是无法给出的，所以这时候就需要leader调用follower的InstallSnapshot RPC来将整个Snapshot传输给他。</p>
+<p>InstallSnapshot RPC的实现上，有以下：</p>
+<ul>
+<li>InstallSnapshot的参数，term, snapshot，论文Figure 13里的offset和done参数都不需要（这个设计很像IP报文的分段传输字段的设计），因为我们不需要实现分chunk传输。返回参数，term。</li>
+<li>InstallSnapshot的逻辑：首先判断term期，term期小于自己的term直接return。然后看自己的log长度，如果log没这么长,则施行持久化Snapshot；再看对应lastIncludedIndex位置的log的term和lastIncludedTerm是不是相同，如果entry相同，则施行持久化Snapshot，并保留lastIncludedIndex之后的log；如果不相同，则之后的log都是错的，所以持久化Snapshot后直接丢弃即可。</li>
+</ul>
+<p>其实个人感觉snapshot没必要放在raft层进行持久化，语义上server层保留并持久化更符合直觉，raft层只需要知道lastIncludedIndex和lastIncludedTerm就好了。</p>
+<p>2022.11.22 跑TestSnapshotSize3B发现超时了，把HeartBeatInterval和UpdateCommitInterval改小就过了。</p>
+<p>2022 11.23 修了些小bug, 通过了所有测例，重复执行 TestSnapshotUnreliableRecoverConcurrentPartitionLinearizable3B 这个测试点500次没有都没有遇到问题，就当PASS了（跑得真慢啊，没关log跑了二十多分钟）。</p>
+<p>Q:为什么要分chunk传输？</p>
+<p>A:论文里说是为了维持心跳？我觉得分chunk主要是链路层的最大报文长度是有限制的。我不懂，知道的同学请告诉我：）</p>
+<h2 id="future-work">future work</h2>
+<p>现在本质上处理log的逻辑还是单线程的，会导致一个client拖累后面的client的处理，其实可以可以考虑改造成分发的形式</p>
+<ul>
+<li>
+<p>Read Lease / follower read</p>
+</li>
+<li>
+<p>raft成员变更。该<a href="https://zhuanlan.zhihu.com/p/359206808" target="_blank" rel="noopener noreffer ">博客</a>讲解了raft中的成员变更。raft成员变更的方法可以分为两阶段变更和单步变更。论文中的Section 6, Cluster Membership Changes，增加了一个JoinPhase阶段，该阶段内的RV以及Commit Log时，都需要分别获得$C_{old}$和$C_{new}$(C用来表示configuration，即raft集群含有的node是哪些）中的多数派的同意，这样就避免了两个多数派同时出现时，可以分别单独进行决策的情况。</p>
+</li>
+<li>
+<p>raft snapshot copy-on-write?</p>
+</li>
+</ul>
+<h2 id="参考资料">参考资料</h2>
+<p><a href="http://nil.csail.mit.edu/6.824/2020/labs/lab-kvraft.html" target="_blank" rel="noopener noreffer ">http://nil.csail.mit.edu/6.824/2020/labs/lab-kvraft.html</a> 官方handout</p>
+<p><a href="https://tanxinyu.work/consistency-and-consensus/#etcd-%E7%9A%84-Raft" target="_blank" rel="noopener noreffer ">https://tanxinyu.work/consistency-and-consensus/#etcd-%E7%9A%84-Raft</a> etcd</p>
+<p><a href="https://zhuanlan.zhihu.com/p/78164196" target="_blank" rel="noopener noreffer ">https://zhuanlan.zhihu.com/p/78164196</a> Ed huang谈Raft读性能优化，以及对TiDB跨数据中心的容灾展望</p>
+</div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>Updated on 2023-11-24</span>
+            </div></div>
+        <div class="post-info-line">
+            <div class="post-info-md"></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/kvserver/" data-title="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/kvserver/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/kvserver/" data-title="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/kvserver/" data-title="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/kvserver/" data-title="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/posts/miniob/" class="prev" rel="prev" title="miniob 2023 初赛记录"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>miniob 2023 初赛记录</a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.120.4">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2023</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="Back to Top">
+                <i class="fas fa-arrow-up fa-fw" aria-hidden="true"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
+                <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>
