@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <title>多核环境下in-memory database的挑战 - lyk の blog</title><meta name="Description" content="This is my cool site"><meta property="og:title" content="多核环境下in-memory database的挑战" />
+<meta property="og:description" content="多核环境下in-memory database的挑战 多核下，从数据库系统（特别是内存数据库）等访存密集的应用，可能会因为访存行为而产生一些新的性能瓶颈，我将其分为两个方面，一个是共享内存时的缓存行所有权争用，这一点再OLTP的工作负载下尤为明显；另一个是NUMA架构带来的潜在的远程节点内存访问的问题，这一点是面向OLAP的数据库需要重点考虑的。
+服务器级CPU的架构 这一部分主要从硬件设计的角度看看现在服务器级CPU的宏观架构，这是一个很大的话题，不同厂商不同代的架构都不一样，不过当今总体的发展方向是比较稳定的，即堆核（没错，不仅RISC厂商在堆，CISC厂商也在堆）。
+先从主板说起，一个服务器一般是一个主板，一个主板上有多个socket，即物理插槽，一个插槽上可以插一个cpu package（可以理解为将多个die打包成为一个整体），即市面上买到的一个个CPU，一个CPU内可以有一个或者多个die，一个die由多个core组成。
+die是个很重要的概念，die就是一个“片”，一个die中的每个core是独享L1和L2 cache的，所有core共享LLC，LLC通过hash的方式将物理地址空间分为一个个slice，用Ring Bus或者Mesh网络的方式连接起来，这两种连接链路都属于片内总线。
+ring bus架构的缺点是，核越多，延迟越大。Mesh网络的方式除了制作难度更大，由于其大大减少了总体的访问距离（双向ring bus的情况下，每个核最远的访问都是半个圈）,所以总体访问延迟更低，并且不再需要跨ring访问。
+至于FSB的淘汰，是因为FSB（CPU与NorthBridge的连接线）瓶颈有限，在CPU多时容易成为性能瓶颈，所以在很早的时候，Intel等厂商就把North Bridge集成到了die中，自然也就不需要FSB了。
+为了提升算力，除了提升制程（很难），另一种方式就是堆核。堆核也有很多方式，一个die里堆核是有上限的，片内堆核虽然性能很好，但是堆多了良品率太低，要进一步扩展的话就得扩展为多个die(多个die合成一个package)，die与die之间的连接方式AMD和Intel的选择也不一样，这里不做更细的展开;另外需要注意的是，这里的连接方式和Intel的QPI和UPI没有任何关系，QPI和UPI是实现跨Socket的通信的，类似网络路由，进行点对点的通信。
+缓存一致性协议 要保证缓存一致性，硬件是需要支付开销的，在多核下开销会变大，表现为缓存访问延迟变高，所以不可忽略。
+延迟变高的主要原因来自于写缓存时产生的RFO请求（RFO：Request For Ownership，指处在S状态的缓存行要升级为E状态，需要向所有核广播一个RFO请求，将其余S状态的缓存行设置为Invalid)。RFO本身就是有延迟的，因为需要等待其余所有核的Invalidate的回应。而总线也是有带宽限制的，所以热点数据竞争修改越多，RFO请求越多，修改请求的延迟就会越高。
+缓存一致性，是对于LLC之上的缓存，即每个core独有的缓存来说的，在如今普遍使用的3级缓存架构下，一般是L1d,L1i,L2缓存。
+缓存一致性协议可以分为基于Snooping-Based和Directory-Based两种，主流的还是采用基于Snooping的方法，主要是MESI协议及其变种，简单介绍一下MESI及其变种。
+MESI
+MESI协议资料很多，这里不赘述。这里的一个例子我认为比较有代表性，表述也比较准确。
+A simple example, a 2 vCPU VM consuming on core 1 and 2 runs SQL server. The VM runs on a 4 core ESXi host.
+1: A SQL query requests memory at address X. The query runs on vCPU1 and core 1 detects it does not have this data in it’s L1 and L2 cache." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://lyk.github.io/posts/multi-core-survey/" /><meta property="og:image" content="http://lyk.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2024-01-10T11:59:51+08:00" />
+<meta property="article:modified_time" content="2024-01-10T11:59:51+08:00" /><meta property="og:site_name" content="My cool site" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="http://lyk.github.io/logo.png"/>
+
+<meta name="twitter:title" content="多核环境下in-memory database的挑战"/>
+<meta name="twitter:description" content="多核环境下in-memory database的挑战 多核下，从数据库系统（特别是内存数据库）等访存密集的应用，可能会因为访存行为而产生一些新的性能瓶颈，我将其分为两个方面，一个是共享内存时的缓存行所有权争用，这一点再OLTP的工作负载下尤为明显；另一个是NUMA架构带来的潜在的远程节点内存访问的问题，这一点是面向OLAP的数据库需要重点考虑的。
+服务器级CPU的架构 这一部分主要从硬件设计的角度看看现在服务器级CPU的宏观架构，这是一个很大的话题，不同厂商不同代的架构都不一样，不过当今总体的发展方向是比较稳定的，即堆核（没错，不仅RISC厂商在堆，CISC厂商也在堆）。
+先从主板说起，一个服务器一般是一个主板，一个主板上有多个socket，即物理插槽，一个插槽上可以插一个cpu package（可以理解为将多个die打包成为一个整体），即市面上买到的一个个CPU，一个CPU内可以有一个或者多个die，一个die由多个core组成。
+die是个很重要的概念，die就是一个“片”，一个die中的每个core是独享L1和L2 cache的，所有core共享LLC，LLC通过hash的方式将物理地址空间分为一个个slice，用Ring Bus或者Mesh网络的方式连接起来，这两种连接链路都属于片内总线。
+ring bus架构的缺点是，核越多，延迟越大。Mesh网络的方式除了制作难度更大，由于其大大减少了总体的访问距离（双向ring bus的情况下，每个核最远的访问都是半个圈）,所以总体访问延迟更低，并且不再需要跨ring访问。
+至于FSB的淘汰，是因为FSB（CPU与NorthBridge的连接线）瓶颈有限，在CPU多时容易成为性能瓶颈，所以在很早的时候，Intel等厂商就把North Bridge集成到了die中，自然也就不需要FSB了。
+为了提升算力，除了提升制程（很难），另一种方式就是堆核。堆核也有很多方式，一个die里堆核是有上限的，片内堆核虽然性能很好，但是堆多了良品率太低，要进一步扩展的话就得扩展为多个die(多个die合成一个package)，die与die之间的连接方式AMD和Intel的选择也不一样，这里不做更细的展开;另外需要注意的是，这里的连接方式和Intel的QPI和UPI没有任何关系，QPI和UPI是实现跨Socket的通信的，类似网络路由，进行点对点的通信。
+缓存一致性协议 要保证缓存一致性，硬件是需要支付开销的，在多核下开销会变大，表现为缓存访问延迟变高，所以不可忽略。
+延迟变高的主要原因来自于写缓存时产生的RFO请求（RFO：Request For Ownership，指处在S状态的缓存行要升级为E状态，需要向所有核广播一个RFO请求，将其余S状态的缓存行设置为Invalid)。RFO本身就是有延迟的，因为需要等待其余所有核的Invalidate的回应。而总线也是有带宽限制的，所以热点数据竞争修改越多，RFO请求越多，修改请求的延迟就会越高。
+缓存一致性，是对于LLC之上的缓存，即每个core独有的缓存来说的，在如今普遍使用的3级缓存架构下，一般是L1d,L1i,L2缓存。
+缓存一致性协议可以分为基于Snooping-Based和Directory-Based两种，主流的还是采用基于Snooping的方法，主要是MESI协议及其变种，简单介绍一下MESI及其变种。
+MESI
+MESI协议资料很多，这里不赘述。这里的一个例子我认为比较有代表性，表述也比较准确。
+A simple example, a 2 vCPU VM consuming on core 1 and 2 runs SQL server. The VM runs on a 4 core ESXi host.
+1: A SQL query requests memory at address X. The query runs on vCPU1 and core 1 detects it does not have this data in it’s L1 and L2 cache."/>
+<meta name="application-name" content="My cool site">
+<meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/multi-core-survey/" /><link rel="prev" href="http://lyk.github.io/posts/kvserver/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "多核环境下in-memory database的挑战",
+        "inLanguage": "en-us",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "http:\/\/lyk.github.io\/posts\/multi-core-survey\/"
+        },"genre": "posts","wordcount":  1123 ,
+        "url": "http:\/\/lyk.github.io\/posts\/multi-core-survey\/","datePublished": "2024-01-10T11:59:51+08:00","dateModified": "2024-01-10T11:59:51+08:00","publisher": {
+            "@type": "Organization",
+            "name": ""},"author": {
+                "@type": "Person",
+                "name": "lyk"
+            },"description": ""
+    }
+    </script></head>
+    <body data-header-desktop="fixed" data-header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('dark' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'dark' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="lyk の blog">lyk的学习笔记</a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a class="menu-item" href="/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                    <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+                </a></div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="lyk の blog">lyk的学习笔记</a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><a class="menu-item" href="/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+            </a></div>
+    </div>
+</header><main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">Contents</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">多核环境下in-memory database的挑战</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2024-01-10">2024-01-10</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;1123 words&nbsp;
+                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;6 minutes&nbsp;</div>
+        </div><div class="details toc" id="toc-static"  data-kept="">
+                <div class="details-summary toc-title">
+                    <span>Contents</span>
+                    <span><i class="details-icon fas fa-angle-right" aria-hidden="true"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#服务器级cpu的架构">服务器级CPU的架构</a></li>
+    <li><a href="#缓存一致性协议">缓存一致性协议</a>
+      <ul>
+        <li><a href="#snooping-mode的选择">Snooping mode的选择</a></li>
+        <li><a href="#cache-profiling">cache profiling</a></li>
+        <li><a href="#小结">小结</a></li>
+      </ul>
+    </li>
+    <li><a href="#numa">NUMA</a>
+      <ul>
+        <li><a href="#从操作系统的视角看numa">从操作系统的视角看NUMA</a></li>
+        <li><a href="#从in-memory-database的角度看numa">从in-memory database的角度看NUMA</a></li>
+      </ul>
+    </li>
+    <li><a href="#参考资料">参考资料</a>
+      <ul>
+        <li><a href="#cpu缓存相关">CPU/缓存相关</a></li>
+        <li><a href="#numa相关">NUMA相关</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><h1 id="多核环境下in-memory-database的挑战">多核环境下in-memory database的挑战</h1>
+<p>多核下，从数据库系统（特别是内存数据库）等访存密集的应用，可能会因为访存行为而产生一些新的性能瓶颈，我将其分为两个方面，一个是共享内存时的缓存行所有权争用，这一点再OLTP的工作负载下尤为明显；另一个是NUMA架构带来的潜在的远程节点内存访问的问题，这一点是面向OLAP的数据库需要重点考虑的。</p>
+<h2 id="服务器级cpu的架构">服务器级CPU的架构</h2>
+<p>这一部分主要从硬件设计的角度看看现在服务器级CPU的宏观架构，这是一个很大的话题，不同厂商不同代的架构都不一样，不过当今总体的发展方向是比较稳定的，即堆核（没错，不仅RISC厂商在堆，CISC厂商也在堆）。</p>
+<p>先从主板说起，一个服务器一般是一个主板，一个主板上有多个socket，即物理插槽，一个插槽上可以插一个cpu package（可以理解为将多个die打包成为一个整体），即市面上买到的一个个CPU，一个CPU内可以有一个或者多个die，一个die由多个core组成。</p>
+<p>die是个很重要的概念，die就是一个“片”，一个die中的每个core是独享L1和L2 cache的，所有core共享LLC，LLC通过hash的方式将物理地址空间分为一个个slice，用Ring Bus或者Mesh网络的方式连接起来，这两种连接链路都属于片内总线。</p>
+<p>ring bus架构的缺点是，核越多，延迟越大。Mesh网络的方式除了制作难度更大，由于其大大减少了总体的访问距离（双向ring bus的情况下，每个核最远的访问都是半个圈）,所以总体访问延迟更低，并且不再需要跨ring访问。</p>
+<p>至于FSB的淘汰，是因为FSB（CPU与NorthBridge的连接线）瓶颈有限，在CPU多时容易成为性能瓶颈，所以在很早的时候，Intel等厂商就把North Bridge集成到了die中，自然也就不需要FSB了。</p>
+<p>为了提升算力，除了提升制程（很难），另一种方式就是堆核。堆核也有很多方式，一个die里堆核是有上限的，片内堆核虽然性能很好，但是堆多了良品率太低，要进一步扩展的话就得扩展为多个die(多个die合成一个package)，die与die之间的连接方式AMD和Intel的选择也不一样，这里不做更细的展开;另外需要注意的是，这里的连接方式和Intel的QPI和UPI没有任何关系，QPI和UPI是实现跨Socket的通信的，类似网络路由，进行点对点的通信。</p>
+<h2 id="缓存一致性协议">缓存一致性协议</h2>
+<p>要保证缓存一致性，硬件是需要支付开销的，在多核下开销会变大，表现为缓存访问延迟变高，所以不可忽略。</p>
+<p>延迟变高的主要原因来自于写缓存时产生的RFO请求（RFO：Request For Ownership，指处在S状态的缓存行要升级为E状态，需要向所有核广播一个RFO请求，将其余S状态的缓存行设置为Invalid)。RFO本身就是有延迟的，因为需要等待其余所有核的Invalidate的回应。而总线也是有带宽限制的，所以热点数据竞争修改越多，RFO请求越多，修改请求的延迟就会越高。</p>
+<p>缓存一致性，是对于LLC之上的缓存，即每个core独有的缓存来说的，在如今普遍使用的3级缓存架构下，一般是L1d,L1i,L2缓存。</p>
+<p>缓存一致性协议可以分为基于Snooping-Based和Directory-Based两种，主流的还是采用基于Snooping的方法，主要是MESI协议及其变种，简单介绍一下MESI及其变种。</p>
+<p><strong>MESI</strong></p>
+<p>MESI协议资料很多，这里不赘述。<a href="http://www.staroceans.org/cache_coherency.htm" target="_blank" rel="noopener noreffer ">这里</a>的一个例子我认为比较有代表性，表述也比较准确。</p>
+<blockquote>
+<p>A simple example, a 2 vCPU VM consuming on core 1 and 2 runs SQL server. The VM runs on a 4 core ESXi host.</p>
+<p>1: A SQL query requests memory at address X. The query runs on vCPU1 and core 1 detects it does not have this data in it’s L1 and L2 cache. <strong>A snoop request is made to the caching agents，this could be the caching agent of the LCC slice or the home agent depending on the snoop algorithm. The agent will send out a snoop request to all the cache agents (or the home agent) to determine if they have the cache line.</strong> At this point, no cache has this data and MESI protocol states that data is in an invalid state for all four cores.</p>
+<p>2: <strong>The data is retrieved from memory and stores it into the LLC and the private cache of the core 1</strong>. The MESI state of this cache line changes and is <strong>Exclusive</strong> for core 1 and invalid for the remaining cores.</p>
+<p>3; Core1 updates the data which transitions the state of the cache line <strong>from Exclusive to Modified.</strong></p>
+<p>4: At this point, another query that runs on core 2 wants X as well. <strong>The core checks L1 and L2 and both miss, the request is forwarded to the LCC and determines X is present</strong>. <strong>It might not be consistent anymore, therefore a snoop is sent to core 1 to determine whether the data is modified. It is and retrieves the data and sends it over to core 2, the MESI state of the cache line is changed and now it’s in an shared state.</strong></p>
+</blockquote>
+<p>由于一般写的方式采用的是write-back策略，所以local cache发生的修改不一定会即使同步到L3 cache上去，所以每次local cache miss时，都会由LLC（或者home agent)发起Snoop Request来询问各个cache agent该cache line的状态如何，而持有该cache line的cache agent都要做出回应。</p>
+<p>仔细的朋友可能能察觉出这个协议的一个问题，就是如果有很多个core以S状态持有同一个cache line，那LLC发出的这个Snoop query后，如果所有持有该cache的core都要进行回复，那很费带宽，也很没必要（只要有一个人回就行了）。</p>
+<p>这里介绍两种优化变种，MESIF和MOESI，前者Intel采用，后者AMD采用。从名字就能看出，这两种都是5 stages的，比MESI多了一种状态。</p>
+<p><strong>MESIF</strong></p>
+<p>MESIF协议采用的解决方法是在S里选一个F(Forward mode)，由这个F来进行response，S不reponse。这个F的宿主永远是最新的请求该行的core，理由如下：</p>
+<blockquote>
+<p>由于缓存可能会单方面丢弃（无效）处于 S 或 F 状态的行，因此即使存在处于 S 状态的副本，也可能没有缓存具有处于 F 状态的副本。在这种情况下，从主内存中满足对该行的请求（效率较低，但仍然正确）。为了最大程度地减少 F 行因缺乏兴趣而被丢弃的可能性，可以为行的最新请求者分配 F 状态;当处于 F 状态的缓存响应时，它会将 F 状态转移给新缓存。</p>
+</blockquote>
+<p>其实这里引出了我对MESI协议的疑问，就是既然每次LLC不能保证自己的数据是最新的，即每次local cache miss都要LLC进行snoop query，那LLC这一层还有什么意义呢？猜测：可能是M状态的local cache向下同步时是异步的吧。</p>
+<p><strong>MOESI</strong></p>
+<p>MESI协议还有一个问题，就是由M状态变为S状态时，需要写回main memory，这是由于MESI协议要求处于S状态的cache line必须是干净的（干净表示与主存是相同的）（为什么呢？）。所以引入一个O状态（Owner,表示Owned, but not exclusive),在M状态下，如果有remote read请求，则不变为S状态，而是变为O状态，remote read请求获取脏数据后，进入S mode。之后的cache miss就由这个O状态的来response了。</p>
+<p>说了这么多，感觉还是没<a href="http://15418.courses.cs.cmu.edu/spring2016/lecture/snoopcoherence/slide_036" target="_blank" rel="noopener noreffer ">CMU的PPT</a>说得清楚：</p>
+<p><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20231211204743703.png"
+        data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20231211204743703.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20231211204743703.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20231211204743703.png 2x"
+        data-sizes="auto"
+        alt="C:\Users\lyk\AppData\Roaming\Typora\typora-user-images\image-20231211204743703.png"
+        title="image-20231211204743703" /></p>
+<p>总的来说，这里只是一些high level的介绍，具体到每个实际的产品的架构实现上，和数据库里的并发控制一样，具体实现上都有所差别。</p>
+<h3 id="snooping-mode的选择">Snooping mode的选择</h3>
+<p>以上谈论缓存一致性协议时，其实淡化了NUMA的概念。其实NUMA架构下（RingBus物理上的，Mesh逻辑上的），采用不同的Snooping mode，对访存的影响其实很大。</p>
+<p>这篇<a href="https://www.starduster.me/2018/05/18/talk-about-evolution-from-broadwell-to-skylake/" target="_blank" rel="noopener noreffer ">文章</a>讲得很粗略，但是给出了Intel实际测试的结果。这篇<a href="http://www.staroceans.org/cache_coherency.htm" target="_blank" rel="noopener noreffer ">文章</a>讲了很多原理。</p>
+<h3 id="cache-profiling">cache profiling</h3>
+<p>只了解perf mem工具，可以看到每一级的cache miss，以及RFO请求数量<a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/monitoring_and_managing_system_status_and_performance/profiling-memory-accesses-with-perf-mem_monitoring-and-managing-system-status-and-performance" target="_blank" rel="noopener noreffer ">教程</a></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>sudo perf mem record -a ./main
+</span></span><span style="display:flex;"><span>perf mem report
+</span></span></code></pre></div><h3 id="小结">小结</h3>
+<p>缓存的利用其实是个微观的角度，主要是在编码上可以做一些设计（特别是计算密集型的任务），利用好程序的局部性，减少cache miss。</p>
+<p>但从内存数据库设计的角度来说，由于cache line本身能cache住的数据量是很有限的，而数据库本身的数据量是很大的，加上workload的不确定性，cache miss是常态。所以从宏观设计上想提高缓存命中率是不太容易的。从内存数据库的角度来说，能够提供的hint应该是：</p>
+<ul>
+<li>尽量减少向share-memory写数据，这会增多RFO。一个好的例子是SILO，其并发控制算法设计出发点就是：只读事务不会向share-memory写数据。</li>
+<li>尽量减少同步，因为同步也是共享内存，也会产生RFO。</li>
+</ul>
+<p>缓存一致性协议是以牺牲缓存性能为代价的，而且跨NUMA节点的缓存一致性的代价更大，这是硬件架构决定的（ccNUMA, for cache coherence NUMA），是必须支付的。除非改变缓存一致性协议。</p>
+<h2 id="numa">NUMA</h2>
+<h3 id="从操作系统的视角看numa">从操作系统的视角看NUMA</h3>
+<p><a href="https://www.kernel.org/doc/html/v4.18/vm/numa.html" target="_blank" rel="noopener noreffer ">https://www.kernel.org/doc/html/v4.18/vm/numa.html</a></p>
+<p>主要是从Linux的视角来说吧，资料最多。参考的是Linux Week News里面的一些文章，主要是<a href="https://lwn.net/Kernel/Index/#Memory_management-NUMA_systems" target="_blank" rel="noopener noreffer ">NUMA systems专题</a>。</p>
+<p>从进程调度的角度来说，Linux从在3.8版本可以说是NUMA-aware了（3.8实现了page的迁移）。理想状态下，Linux会尽量将内存分配在process运行的本地node，但是要完美做到这一点几乎是不可能的，因为一个node上的memory总量是有限的，核的数量也是有限的，限定内存都分配到一个home node上，会影响进程的调度。生命短的进程还好，长的进程难免会在各个node中留下footprint。</p>
+<p>这里涉及到了Linux进程调度，有必要提一下：</p>
+<blockquote>
+<p><strong>The Linux scheduler will attempt to keep the process cache hot during load balancing.</strong> This means
+the scheduler’s preference is to leave the process on processors that share the L1-processor cache,
+then on processors that share L2, and then on processors that share L3, with the processor that the
+process ran on last. If there is an imbalance beyond that, the scheduler will move the process to any
+other processor on the same NUMA node.</p>
+<p><strong>As a last resort the scheduler will move the process to another NUMA node</strong>.Most memory accesses from the process will then be remote, which will cause the performance of the process to degrade.</p>
+<p>There has been some recent work in making the scheduler NUMA-aware to ensure <strong>that the pages</strong>
+<strong>of a process can be moved back to the local node</strong>, but that work is available only in Linux 3.8 and
+later, and is not considered mature.</p>
+</blockquote>
+<p>简单来说，就是Linux进程调度时是倾向于将进程在一个核或者一堆相近的核上跑的（因为这样能利用好cache)，<a href="https://home.mit.bme.hu/~meszaros/edu/oprendszerek/segedlet/unix/2_folyamatok_es_utemezes/linux_utemezes.pdf" target="_blank" rel="noopener noreffer ">这本书</a>中有讲早期Linux的调度策略，调度器在进行调度的时候虽然不会去分析cache的分布情况，但是会估计_cache_flush_time_这个参数（根据机器的cache size和cpu主频计算出来的一个常数），来判断这个进程能不能绑在这个核上运行：</p>
+<blockquote>
+<p>The <strong>cacheflush_time</strong> variable contains a rough estimate of the minimal number of
+CPU cycles it takes to entirely overwrite the hardware cache content.</p>
+<p>if cacheflush_time is greater than <strong>the average time slice</strong> of some currently running process, no process preemption is performed because it is convenient in this case to bind processes to the processors that last executed them.</p>
+</blockquote>
+<p>现在的CFS调度器中的 <em>sched migration cost</em> 这个参数也是类似的效果。</p>
+<p>那么如果一个进程被调度到了别的核上去了呢？首先，这是一个需要尽量减少发生的行为，其次，真的发生了，需要一些措施来尽量减少内存损耗。比较有代表性的工作是Peter Zijlstra的home节点与lazy migration工作，详见<a href="https://lwn.net/Articles/486850/" target="_blank" rel="noopener noreffer ">邮件</a>，这就是Linux内核中所谓的NUMA-aware吧。</p>
+<blockquote>
+<p>Current upstream task memory allocation prefers to use the node the task is currently running on (unless explicitly told otherwise, see mbind()/set_mempolicy()), and with the scheduler free to move the task about at will, the task&rsquo;s memory can end up being spread all over the machine&rsquo;s nodes.</p>
+<p><strong>While the scheduler does a reasonable job of keeping short running tasks on a single node (by means of simply not doing the cross-node migration very often), it completely blows for long-running processes with a large memory footprint.</strong></p>
+</blockquote>
+<p>这些补丁集只能缓解这种问题，操作系统能做的也就只有这些了。所以对于数据库这种long running的特别是线程众多的，要达到好的性能，就必须对具体的hardware和workload非常了解，通过精心设计来避免。</p>
+<p>总之，从操作系统的角度来看NUMA，是一个相当复杂的话题，因为操作系统的目的是让所有进程都能够就近地访问内存（这可能本身就是一个无解的问题？毕竟操作系统无法预测进程的访存行为）。涉及到内存分配与迁移+进程调度这两个方面，从Linux Weekly News上也能看到，似乎Linux在内核上还没有找到一个让大家满意的做法。</p>
+<p>以下是操作系统给出的一些接口，主要是：（1）为进程设置NUMA node和allocation policy、（2）直接把进程绑CPU运行。</p>
+<h4 id="指定allocation-policy">指定allocation policy</h4>
+<p>对于一些访存需求高且需要高性能的应用，比如HPC和DB，操作系统提供了一些接口来让应用能data-driven地自己利用NUMA，主要提供的就是一些policy:</p>
+<blockquote>
+<p>NODE LOCAL: The allocation occurs from the memory node local to where the code is currently ececuting.</p>
+<p>INTERLEAVE: round-robin allocation. in order to have an even load on interconnect and memory of each node.</p>
+<p>BIND: specifiy the preferable or the only nodes you expect the page allcations happen</p>
+</blockquote>
+<p>这些policy可以通过mbind接口来指定</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>   <span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;numaif.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>   <span style="color:#66d9ef">long</span> <span style="color:#a6e22e">mbind</span>(<span style="color:#66d9ef">void</span> addr[.len], <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span> len, <span style="color:#66d9ef">int</span> mode,
+</span></span><span style="display:flex;"><span>              <span style="color:#66d9ef">const</span> <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span> nodemask[(.maxnode <span style="color:#f92672">+</span> ULONG_WIDTH <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>                                           <span style="color:#f92672">/</span> ULONG_WIDTH],
+</span></span><span style="display:flex;"><span>              <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span> maxnode, <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">int</span> flags);
+</span></span></code></pre></div><p>mode参数解释：</p>
+<blockquote>
+<p><strong>MPOL_DEFAULT（MPOL_LOCAL ）:</strong></p>
+<p>对应NODE LOCAL, the system-wide default policy allocates pages on the node of <strong>the CPU that triggers</strong> the allocation.</p>
+<p><strong>MPOL_BIND:</strong></p>
+<p>严格BIND, This mode specifies a <strong>strict policy</strong> that restricts memory allocation to the nodes <strong>specified in nodemask</strong>. if more than one node is specified,  page allocations will come from the node with sufficient free memory that is <strong>closest</strong> to the node where the allocation takes place.</p>
+<p><strong>MPOL_INTERLEAVE:</strong></p>
+<p>对应INTERLEAVE. page allocations be interleaved  across the set of nodes specified in nodemask.This optimizes for bandwidth instead of latency. To be effective the memory area should be  fairly large, at least 1 MB or bigger with a fairly  uniform access pattern.</p>
+<p><strong>MPOL_PREFERRED:</strong></p>
+<p>非严格BIND</p>
+</blockquote>
+<p>flag参数：</p>
+<p>MPOL_MF_STRICT :if the pages allocated already violates the specified policy, error and failed.</p>
+<p>MPOL_MF_MOVE: migrate pages if possible</p>
+<p>MPOL_MF_MOVE_ALL: force migrate, need priveledge</p>
+<h4 id="进程绑核设置亲和度">进程绑核（设置亲和度）</h4>
+<p>还有其他的可以间接控制memory allocation的办法，比如设置线程的亲和度，将线程绑定到一些cpu上（间接绑到NUMA node）上执行，默认policy下，memory就都分配在local node了。具体的函数接口<a href="https://man7.org/linux/man-pages/man3/pthread_setaffinity_np.3.html" target="_blank" rel="noopener noreffer ">在这</a>：</p>
+<pre tabindex="0"><code>#define _GNU_SOURCE             /* See feature_test_macros(7) */
+// 如果上面这行不行的话，改为#define _GNU_SOURCE 1
+#include &lt;pthread.h&gt;
+
+int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize,
+                          const cpu_set_t *cpuset);
+int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize,
+                          cpu_set_t *cpuset);
+</code></pre><p>另外，还有命令<a href="https://man7.org/linux/man-pages/man1/taskset.1.html" target="_blank" rel="noopener noreffer ">taskset</a>, 设置cpu组，还有一个更强的<a href="https://www.xiexianbin.cn/linux/commands/numactl/index.html" target="_blank" rel="noopener noreffer ">numactl工具</a>，集成了mbind和taskset。</p>
+<p>注：有没有在进程运行前就绑核的接口呢？以上接口相当于是后发地设置亲和度，后续调度时迁移过去。</p>
+<h4 id="numa有关的profiling">NUMA有关的profiling</h4>
+<p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/monitoring_and_managing_system_status_and_performance/profiling-memory-allocation-with-numastat_monitoring-and-managing-system-status-and-performance" target="_blank" rel="noopener noreffer ">numastat指令</a>可以扫描目前机器上所有进程的内存分配状况，能看numa miss什么的，对判断系统memory alloaction是否合理关系很大。</p>
+<h3 id="从in-memory-database的角度看numa">从in-memory database的角度看NUMA</h3>
+<p>Linux的NUMA有关的补丁很多，作者也争论不休，因为自己的补丁总会在一些workload下表现很差，没有一个普适的补丁适合所有workload。所以，application(比如db)相比于操作系统的优点在于，application对自己的工作负载是更清楚的（清楚在哪呢？其实我也没想清楚）。</p>
+<p>多级NUMA架构下，内存本地访问与远程访问之前延迟的差别越来越大（local, 1-hop, 2-hop, remote)，事务本地访存的比例直接影响着延迟以及吞吐率。</p>
+<p>从我现在的了解来看，可能能减少远程访问的方式有以下几点（in-memory database的论文我看得还很少，以下这些纯属一些猜想）：</p>
+<p><strong>compilation</strong></p>
+<p>能事先确定的事务，像hekaton一样直接complie，事务存活的时间越短，一方面越能cache住数据，另一方面能保证NUMA内存分配的本地性（减少被调调度到其他NUMA node上的可能性），本质还是减少footprint。</p>
+<p><strong>split by warehouse</strong></p>
+<p>如果workload有warehouse的性质，并且各个warehouse访问负载比较均匀，那就把warehouse分NUMA node放。</p>
+<p><strong>sharding+replica?</strong></p>
+<p>其实感觉NUMA架构和分布式里面的share-nothing有点像，即存算不分离，可能有可以借鉴的点。难点是负载均衡</p>
+<p>share-nothing架构下会通过shard迁移做负载均衡、事务处理本地化（ScaleStore好像是这样)。</p>
+<p>在高并发的场景下，并发的线程几乎一定大于一个NUMA节点的core数，所以线程被调度到别的NUMA node上几乎是无法避免的！所以最好采用bind的方式强行限制这种操作系统的这种migration。这其实是一种比较激进的行为，因为如果不同NUMA node上的负载不同，强行绑核会导致一个node上内存带宽打满，核忙不过来，而另外NUMA node看戏的情况。所以，如何均衡负载是一个问题。</p>
+<p>负载不均衡，一个NUMA node装不下，那就把热点且只读的数据replica, 为多个NUMA node提供本地访问。</p>
+<p>这篇<a href="https://lwn.net/Articles/486858/" target="_blank" rel="noopener noreffer ">文章</a>下面关于memory mirroring的讨论涉及到replica是否有必要的问题，总的来说，对于小workset的进程来说，收益有，但是没有那么大，而且这种收益是以消耗内存占用为代价的；有些Kernel为了保证内核本身在NUMA node上的性能，会将比较重要的结构在每个node上进行replica，比如Solaris。)。</p>
+<p>最理想的办法当然是把working set都cache住，这样就不存在NUMA的问题了，对于数据库来说，这很难。</p>
+<h2 id="参考资料">参考资料</h2>
+<h3 id="cpu缓存相关">CPU/缓存相关</h3>
+<p><a href="https://people.freebsd.org/~lstewart/articles/cpumemory.pdf" target="_blank" rel="noopener noreffer ">What Every Programmer Should Know about Memory</a> 这是2007年RedHat工程师的一个长文，介绍了当时主流架构下CPU访存链路上的各个瓶颈，，虽然一些架构以及数据已经过时了，但是其中的实验方法以及给出的一些建议依然很有参考价值</p>
+<p><a href="https://zhuanlan.zhihu.com/p/385518829" target="_blank" rel="noopener noreffer ">CPU知识大杂烩(知乎)</a> 偶然看到的，CPU科普</p>
+<p><a href="http://15418.courses.cs.cmu.edu/spring2016/lecture/snoopcoherence/slide_036" target="_blank" rel="noopener noreffer ">CMU15-418 课件-Snooping Based Cache Coherence</a> 分析了MESI和MOESI相较于MESI的优点</p>
+<p><a href="http://www.staroceans.org/cache_coherency.htm" target="_blank" rel="noopener noreffer ">http://www.staroceans.org/cache_coherency.htm</a> Vmware的工程师介绍NUMA架构下的缓存一致性，并介绍了各种配置的选择方式，主要是Early Snoop, Home Snoop, Home Snoop with DIR + OSB, Cluster-on-Die这四种snoop mode。</p>
+<p><a href="https://en.wikipedia.org/wiki/MESIF_protocol" target="_blank" rel="noopener noreffer ">MESIF protocol</a> MESIF协议维基百科，分析了与MESI协议的改进之处，并与MOESI协议进行了比较</p>
+<p><a href="https://www.starduster.me/2018/05/18/talk-about-evolution-from-broadwell-to-skylake/#Snooping_%E5%92%8C_Cluster_on_die" target="_blank" rel="noopener noreffer ">从 E5-2690v4 的 NUMA 数量说起，浅谈 Broadwell 到 Skylake 的改进</a> 较深入地分析了Broadwell架构和Skylake架构（补充一下Intel CPU微架构的发展历史：Sandy Bridge(Ivy Bridge)-&gt;Haswell(Boradwell)-&gt;Skylake)，重点讲了Broadwell的4种Snooping配置。</p>
+<h3 id="numa相关">NUMA相关</h3>
+<p>NUMA: an overview <a href="https://queue.acm.org/detail.cfm?id=2513149" target="_blank" rel="noopener noreffer ">https://queue.acm.org/detail.cfm?id=2513149</a> 高引综述，从操作系统的角度（主要是Linux）出发看NUMA架构，非常推荐</p>
+<h1 id="茶余饭后">茶余饭后</h1>
+<p>今天吃完晚饭时问室友rust有关的问题，问题大概的结论是“trait里当然不能返回子类类型的值（除非返回Box<!-- raw HTML omitted -->，即打包)”。<a href="https://cxz888.xyz/" target="_blank" rel="noopener noreffer ">室友</a>对编程语言很有研究，非常厉害。开始和我说起了rust，C++，go的一些有意思的区别，我稍微总结了一下，很多地方可能都不准确，都是个人理解。</p>
+<p>首先是多态，分为动态派发和静态派发。动态派发通过虚表实现，静态派发rust和go通过泛型实现，c++通过模板实现。对于动态派发，rust和go是有接口的概念的，类似JAVA里的interface，rust里叫trait，go里叫interface，rust和go的区别在于：</p>
+<p>1.trait需要显式实现（impl关键字），而go是编译时duck type（说到duck type，第一时间想到的是python, js等脚本语言，不过go和脚本语言是不一样，脚本语言的duck type是动态的，运行时如果没有找到对应的方法会panic，而go和C++模板一样，是在编译期检查）</p>
+<p>2.rust的trait是静态派发的，而go的interface更像是C++的纯虚类，是动态派发的。这么一想，rust的trait挺厉害的，还能通过&amp;dyn TRAIT来显式实现动态派发。</p>
+<p>那C++呢？C++通过虚类实现动态派发，通过泛型模板实现静态派发。template虽然有很强的的表达能力（图灵完备，模板元编程），但是尴尬的C++泛型里没有引入trait bound概念来限制泛型的类型（或者go的interface)，导致其编译时的检查相对复杂一些，所以泛型编译报错信息非常冗长。当然，C++20引入了concept的概念来解决这个问题，但是介于C++17都还没有普及，所以不做讨论。</p>
+<p>还有一个有趣的点，就是rust的动态派发实现的原理和C++很不一样。C++的方案是采用slice，即把子类的一部分切出来，就是父类了。而为了支持动态派发，rust没有在struct的内存布局上做手脚，而是针对trait object做了一个简单的设计。rust在被指定使用动态派发时（创建trait object），这个trait object实际上是一个胖指针（rust里有两种胖指针，一种是&amp;dyn trait，一种是&amp;[T]即切片）。这个胖指针一共16个字节，前8字节指向具体的struct，后8字节指向虚表，所以说，rust里的struct里是不包含虚表指针的！也就是说在rust里不论为struct实现多少个trait，struct的大小都是不变的！从一定意义上来说，rust的动态派发时一种低成本抽象（低成本是相对于C++中的类每多继承一个基类内存布局中就需要多一个虚表指针；但是rust的胖指针不能说零成本抽象，毕竟有虚表，是一次额外访存开销。）其实rust这种做法还有一个很大的优势，就是你可以在不去修改原来类型的情况下，为一个已经存在的类型实现新的trait！比如可以自己定义一个trait，比如Serilaze，然后为Vec<!-- raw HTML omitted -->实现这个trait，这是rust一个很好的语言特性。当然，rust这种做法也有缺点，就是对upper_cast的支持不太好，C++的upper_cast很简单，将指针往前推（如果vptr偏移量为0的话，甚至不需要往前推），推到子类的起始位置就好，而rust不行。</p>
+<p>总之，编程语言里面这些概念在语义上有很多相近的地方，类型系统为使用者提供丰富的表达力。但在类型系统的具体实现上，每个语言又有自己的设计上的选择，仔细想想还是很有意思的。</p>
+<p>explicit哲学：</p>
+<p>对于dyn Trait来说，语义上他是为了能够处理各种各样的大小的struct而出现的，所以“不需要”Sized这个trait，而不是“不能”有Sized这个Trait。也就是说，如果你一个trait是Sized，那其实他可以通过泛型在栈上分配就能实现多态，不需要dyn Trait这种有损性能的做法，这是rust在强制我们思考是否有必要用dyn Trait。</p>
+<p>Send Trait:</p>
+<p>首先，什么是Send Trait呢？如果需要一个struct能安全地“跨过”Trait bound（“跨过”可以理解为被closure function捕获，所以安全地跨过意味着能在线程之间安全地共享），那就说这个struct是实现了Send Trait的。</p>
+<p>这个Trait是rust编译器自动为我们实现的，如果一个struct不含引用和Rc字段，那rust编译器就会为这个struct自动实现Send Trait。</p>
+<p>FnOnce, FnMut, Fn Trait:</p>
+<p>闭包就是一个匿名的结构体，每个被捕获的自由变量都是它的一个字段。rust在遇到闭包时，首先会查看闭包中捕获了哪些自由变量，并检查在闭包body中是怎么使用这些自由变量的，是需要consume掉，还是需要&amp;mut，还是需要&amp;呢？rust编译器会选择合适的捕获方法，如果捕获的是引用，并且遇到了生命周期的问题（比如这个闭包要被return出去，或者作为参数传出去等），那编译器就会报错，并建议我们加入move关键字来显式地将自由变量move到闭包结构体中，延长其生命周期。</p>
+<p>FnOnce(self), FnMut(&amp;mut self), Fn(&amp;self)，从这个也能看出来，FnOnce的语义是只能call一次，call一次后就会被consume掉。</p>
+<p>FnOnce, FnMut, Fn Trait这几个trait是rust编译器自动为我们的闭包实现的。实现哪个闭包，完全是看闭包body中是怎么使用这些自由变量的，和他具体以什么方式捕获无关！</p>
+<p><a href="https://stackoverflow.com/questions/77062589/why-arent-traits-sized-by-default" target="_blank" rel="noopener noreffer ">rust - Why aren&rsquo;t traits Sized by default? - Stack Overflow</a></p>
+<p>今天晚上向<a href="" rel="">字节ByteGraph大佬学长</a>请教了一些问题，我的问题是：“pg这种基于heap table的存储方式，他既然要为一个逻辑对象在索引中存多个entry表示多个版本，那为啥他不顺便在entry里把[begin_ts, end_ts]存下来呢？这样就能立马定位到需要的版本了”，世蛟哥说这个问题其实就是“索引是否要感知多版本”。这是索引选择上的两个做法，一类是不感知多版本，比如innodb和pg，innodb的话不需要新插entry，pg的话每多一个新版本，就要在所有次级索引里插一个entry。而对版本感知的例子也有，比如oceanbase。那感知的有个什么问题呢，比如一个table(A int, B int, C int, pkey A, key B)，如果要修改一个tuple的字段C，由于他是一个新版本，所以就需要在。另外，世蛟哥说他认为SILO最牛的地方在于其故障恢复的设计，因为Innodb那样得等到一个事务的log落盘了，才能放锁（具体我还不懂，得看ARIES论文)，hekaton也是，这才是瓶颈之处，其实至于中心化的timestamp分配并不是瓶颈；而SILO不需要这额外的等待。另外，还推荐LeanStore和Neuman最近那篇mvcc in memory over disk的论文。然后工业界对于Isolation的需求，其实很多时候Read Committed就够用了，然后select for update比较多，快照也有，做分析的时候可能用到。</p>
+</div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>Updated on 2024-01-10</span>
+            </div></div>
+        <div class="post-info-line">
+            <div class="post-info-md"></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/multi-core-survey/" data-title="多核环境下in-memory database的挑战"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/multi-core-survey/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/multi-core-survey/" data-title="多核环境下in-memory database的挑战"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/multi-core-survey/" data-title="多核环境下in-memory database的挑战"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/multi-core-survey/" data-title="多核环境下in-memory database的挑战"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/posts/kvserver/" class="prev" rel="prev" title="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记</a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.120.4">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="Back to Top">
+                <i class="fas fa-arrow-up fa-fw" aria-hidden="true"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
+                <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>

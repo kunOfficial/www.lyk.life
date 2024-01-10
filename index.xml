@@ -3,9 +3,31 @@
         <title>lyk の blog</title>
         <link>http://lyk.github.io/</link>
         <description>This is my cool site</description>
-        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Fri, 24 Nov 2023 23:47:28 &#43;0800</lastBuildDate>
+        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Wed, 10 Jan 2024 11:59:51 &#43;0800</lastBuildDate>
             <atom:link href="http://lyk.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
+    <title>多核环境下in-memory database的挑战</title>
+    <link>http://lyk.github.io/posts/multi-core-survey/</link>
+    <pubDate>Wed, 10 Jan 2024 11:59:51 &#43;0800</pubDate>
+    <author>lyk</author>
+    <guid>http://lyk.github.io/posts/multi-core-survey/</guid>
+    <description><![CDATA[多核环境下in-memory database的挑战 多核下，从数据库系统（特别是内存数据库）等访存密集的应用，可能会因为访存行为而产生一些新的性能瓶颈，我将其分为两个方面，一个是共享内存时的缓存行所有权争用，这一点再OLTP的工作负载下尤为明显；另一个是NUMA架构带来的潜在的远程节点内存访问的问题，这一点是面向OLAP的数据库需要重点考虑的。
+服务器级CPU的架构 这一部分主要从硬件设计的角度看看现在服务器级CPU的宏观架构，这是一个很大的话题，不同厂商不同代的架构都不一样，不过当今总体的发展方向是比较稳定的，即堆核（没错，不仅RISC厂商在堆，CISC厂商也在堆）。
+先从主板说起，一个服务器一般是一个主板，一个主板上有多个socket，即物理插槽，一个插槽上可以插一个cpu package（可以理解为将多个die打包成为一个整体），即市面上买到的一个个CPU，一个CPU内可以有一个或者多个die，一个die由多个core组成。
+die是个很重要的概念，die就是一个“片”，一个die中的每个core是独享L1和L2 cache的，所有core共享LLC，LLC通过hash的方式将物理地址空间分为一个个slice，用Ring Bus或者Mesh网络的方式连接起来，这两种连接链路都属于片内总线。
+ring bus架构的缺点是，核越多，延迟越大。Mesh网络的方式除了制作难度更大，由于其大大减少了总体的访问距离（双向ring bus的情况下，每个核最远的访问都是半个圈）,所以总体访问延迟更低，并且不再需要跨ring访问。
+至于FSB的淘汰，是因为FSB（CPU与NorthBridge的连接线）瓶颈有限，在CPU多时容易成为性能瓶颈，所以在很早的时候，Intel等厂商就把North Bridge集成到了die中，自然也就不需要FSB了。
+为了提升算力，除了提升制程（很难），另一种方式就是堆核。堆核也有很多方式，一个die里堆核是有上限的，片内堆核虽然性能很好，但是堆多了良品率太低，要进一步扩展的话就得扩展为多个die(多个die合成一个package)，die与die之间的连接方式AMD和Intel的选择也不一样，这里不做更细的展开;另外需要注意的是，这里的连接方式和Intel的QPI和UPI没有任何关系，QPI和UPI是实现跨Socket的通信的，类似网络路由，进行点对点的通信。
+缓存一致性协议 要保证缓存一致性，硬件是需要支付开销的，在多核下开销会变大，表现为缓存访问延迟变高，所以不可忽略。
+延迟变高的主要原因来自于写缓存时产生的RFO请求（RFO：Request For Ownership，指处在S状态的缓存行要升级为E状态，需要向所有核广播一个RFO请求，将其余S状态的缓存行设置为Invalid)。RFO本身就是有延迟的，因为需要等待其余所有核的Invalidate的回应。而总线也是有带宽限制的，所以热点数据竞争修改越多，RFO请求越多，修改请求的延迟就会越高。
+缓存一致性，是对于LLC之上的缓存，即每个core独有的缓存来说的，在如今普遍使用的3级缓存架构下，一般是L1d,L1i,L2缓存。
+缓存一致性协议可以分为基于Snooping-Based和Directory-Based两种，主流的还是采用基于Snooping的方法，主要是MESI协议及其变种，简单介绍一下MESI及其变种。
+MESI
+MESI协议资料很多，这里不赘述。这里的一个例子我认为比较有代表性，表述也比较准确。
+A simple example, a 2 vCPU VM consuming on core 1 and 2 runs SQL server. The VM runs on a 4 core ESXi host.
+1: A SQL query requests memory at address X. The query runs on vCPU1 and core 1 detects it does not have this data in it’s L1 and L2 cache.]]></description>
+</item>
+<item>
     <title>MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记</title>
     <link>http://lyk.github.io/posts/kvserver/</link>
     <pubDate>Fri, 24 Nov 2023 23:47:28 &#43;0800</pubDate>
