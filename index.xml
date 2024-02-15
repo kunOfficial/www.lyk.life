@@ -3,9 +3,31 @@
         <title>lyk の blog</title>
         <link>http://lyk.github.io/</link>
         <description>This is my cool site</description>
-        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Wed, 10 Jan 2024 11:59:51 &#43;0800</lastBuildDate>
+        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Thu, 15 Feb 2024 16:31:50 &#43;0800</lastBuildDate>
             <atom:link href="http://lyk.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
+    <title>MIT 6.1810 fall2023 笔记</title>
+    <link>http://lyk.github.io/posts/xv6-lab/</link>
+    <pubDate>Thu, 15 Feb 2024 16:31:50 &#43;0800</pubDate>
+    <author>lyk</author>
+    <guid>http://lyk.github.io/posts/xv6-lab/</guid>
+    <description><![CDATA[MIT XV6 2023笔记 记录一下MIT 6.1810 2023 fall公开课（以前叫6.828）的lab，以及自己看xv6-book觉得有意思的点。一方面方便自己回顾，另外希望能帮上一些后来的朋友。
+Lab: Xv6 and Unix utilities sleep 没什么好说的
+pingpong 主要熟悉一下pipe系统调用，fd[2]第一个是rfd，第二个是wfd。思路就是创建两个pipe，父子进程通过管道进行同步，依次打印所需内容即可。
+primes 实现质数筛。handout里的这篇文章值得一读，主要的思想就是“多进程模型不仅仅是一种利用多处理器的手段，它本身也是一种解决一些问题的一种自然的模型”，比如这个质数筛，就是以“每个进程作为一层筛子”的思路来实现的，具体实现上面的文章里有伪代码，进程间通信还是用pipe。值得注意的是记得对于不需要的pipe fd要及时关掉（比如邻居与邻居的邻居之间的管道显然是不需要的，可以关闭），要不然递归创建pipe，fd会爆。xv6里一个进程默认的最大的打开的文件数是16。
+find unix里常用的一个命令，主要是用来熟悉文件系统调用，思路就是递归遍历指定的path下所有的目录以及文件，逐个判断是否与pattern match。文件的类型通过stat系统调用来获取。这里值得注意的是directory文件并不是按照来其中的entry数来确定大小的，它永远是固定大小的，inum=0的entry大概就表示是空entry吧？我这里通过判定ent.name == &lsquo;\0&rsquo;来判定是否为空entry也能过测例。
+xargs 开个buffer数组用来存新argv参数，最好作为全局变量，放栈上可能爆栈。然后就是从标准输入中一个一个字节读，并以\n为分割，解析出新的参数，再fork+exec就好了。
+另外，我发现vscode自带的ClangFormat导致include的头文件顺序乱了，最终导致过不了编译，这是因为xv6里头文件的编码风格都是手动管理include顺序来保证不会miss definition，而不是用在每个头文件里定义宏来防止重复include。
+解决办法有两种，一种是加上// clang-format off 这一行就好了，另一种办法就是不用clang-format。
+Lab: system calls Using gdb 用gdb源码编译并安装好gdb，如果gdb时发现layout指令用不了，需要加&ndash;enable-tui=yes参数重新编译并安装一遍gdb，我按照这个博客重新装了一遍。
+这里涉及到了一些寄存器，risc-v硬件方面的前置知识可以看rcore的介绍
+sstatus:寄存器，其中有SPP位表示进入supervisor mode之前是什么特权级，0表示user mode，1表示supervisor mode。其中的SIE位是Supervisor Interupt Enable，PSIE位是Prior Supervisor Interupt Enable
+见The RISC-V Instruction Set Manual, Volume II: Privileged Architecture | Five EmbedDev (five-embeddev.com)
+epc: exeption program counter,发生异常时，在进入trap前，硬件自动将pc存到epc中，用于异常处理的返回。
+satp: 页表首地址
+从scause可以看出这是个page fault，sepc是发生缺页中断的指令地址，stval中保存的是导致page fault的非法地址。通过sepc去kernel.asm文件中找就能发发现page fault的位置。]]></description>
+</item>
+<item>
     <title>多核环境下in-memory database的挑战</title>
     <link>http://lyk.github.io/posts/multi-core-survey/</link>
     <pubDate>Wed, 10 Jan 2024 11:59:51 &#43;0800</pubDate>

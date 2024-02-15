@@ -65,6 +65,15 @@
         alt="./Shiroko.jpg"
         title="./Shiroko.jpg" /></a></div><div class="home-subtitle"><div id="id-1" class="typeit"></div></div><div class="links"><a href="https://github.com/kunOfficial" title="GitHub" target="_blank" rel="noopener noreffer me"><i class="fab fa-github fa-fw" aria-hidden="true"></i></a></div></div>
 <article class="single summary" itemscope itemtype="http://schema.org/Article"><h1 class="single-title" itemprop="name headline">
+        <a href="/posts/map_reduce/">MIT 6.824 2020 (1) lab1 MapReduce实现笔记</a>
+    </h1><div class="post-meta"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span>&nbsp;<span class="post-publish">published on <time datetime="2023-08-08">2023-08-08</time></span></div><div class="content">MIT 6.824 2020 (1) lab1 MapReduce实现笔记 花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。
+以下是我的一些笔记，这门课不允许在网上公开代码，但是为了便于描述，我还是将一部分核心代码贴了出来。
+Master和Worker的定义 命名方式随意了点：）
+看变量名大概就能知道什么意思，需要补充的是，TaskStatus的Start表示未被分配，Processing表示有worker正在处理，而Done表示该任务已经完成。
+另外，Master会维持一个全局的global_phase变量，用来指示现在所处的阶段，lifetime是 MapPhase -&gt; ReducePhase -&gt; CompletedPhase。并通过维护done_cnt计数器来知晓现在完成的Map/Reduce Task的数量，在全部完成时，进行Phase的转换。
+type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( MapPhase Phase = iota ReducePhase CompletedPhase ) // TaskType const ( Map TaskType = iota Reduce Wait Exit ) // TaskStatus const ( Start TaskStatus = iota Processing Done ) type MapTask struct { // machine_id int NReduce int TaskId int InputFile string Status TaskStatus // iter_files []string Time time.</div><div class="post-footer">
+        <a href="/posts/map_reduce/">Read More</a></div>
+</article><article class="single summary" itemscope itemtype="http://schema.org/Article"><h1 class="single-title" itemprop="name headline">
         <a href="/posts/first_post/">Hello world</a>
     </h1><div class="post-meta"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span>&nbsp;<span class="post-publish">published on <time datetime="2023-03-21">2023-03-21</time></span></div><div class="content">hello world!
 打算开始写博客啦</div><div class="post-footer">

@@ -2,8 +2,9 @@
     xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
     xmlns:xhtml="http://www.w3.org/1999/xhtml"
     ><url>
-            <loc>http://lyk.github.io/</loc><lastmod>2024-01-10T11:59:51&#43;08:00</lastmod></url><url>
-            <loc>http://lyk.github.io/posts/</loc><lastmod>2024-01-10T11:59:51&#43;08:00</lastmod></url><url>
+            <loc>http://lyk.github.io/</loc><lastmod>2024-02-15T16:31:50&#43;08:00</lastmod></url><url>
+            <loc>http://lyk.github.io/posts/xv6-lab/</loc><lastmod>2024-02-15T16:31:50&#43;08:00</lastmod></url><url>
+            <loc>http://lyk.github.io/posts/</loc><lastmod>2024-02-15T16:31:50&#43;08:00</lastmod></url><url>
             <loc>http://lyk.github.io/posts/multi-core-survey/</loc><lastmod>2024-01-10T11:59:51&#43;08:00</lastmod></url><url>
             <loc>http://lyk.github.io/posts/kvserver/</loc><lastmod>2023-11-24T23:47:28&#43;08:00</lastmod></url><url>
             <loc>http://lyk.github.io/posts/miniob/</loc><lastmod>2023-11-08T11:55:30&#43;08:00</lastmod></url><url>

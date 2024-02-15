@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noodp" />
+        <title>MIT 6.1810 fall2023 笔记 - lyk の blog</title><meta name="Description" content="This is my cool site"><meta property="og:title" content="MIT 6.1810 fall2023 笔记" />
+<meta property="og:description" content="MIT XV6 2023笔记 记录一下MIT 6.1810 2023 fall公开课（以前叫6.828）的lab，以及自己看xv6-book觉得有意思的点。一方面方便自己回顾，另外希望能帮上一些后来的朋友。
+Lab: Xv6 and Unix utilities sleep 没什么好说的
+pingpong 主要熟悉一下pipe系统调用，fd[2]第一个是rfd，第二个是wfd。思路就是创建两个pipe，父子进程通过管道进行同步，依次打印所需内容即可。
+primes 实现质数筛。handout里的这篇文章值得一读，主要的思想就是“多进程模型不仅仅是一种利用多处理器的手段，它本身也是一种解决一些问题的一种自然的模型”，比如这个质数筛，就是以“每个进程作为一层筛子”的思路来实现的，具体实现上面的文章里有伪代码，进程间通信还是用pipe。值得注意的是记得对于不需要的pipe fd要及时关掉（比如邻居与邻居的邻居之间的管道显然是不需要的，可以关闭），要不然递归创建pipe，fd会爆。xv6里一个进程默认的最大的打开的文件数是16。
+find unix里常用的一个命令，主要是用来熟悉文件系统调用，思路就是递归遍历指定的path下所有的目录以及文件，逐个判断是否与pattern match。文件的类型通过stat系统调用来获取。这里值得注意的是directory文件并不是按照来其中的entry数来确定大小的，它永远是固定大小的，inum=0的entry大概就表示是空entry吧？我这里通过判定ent.name == &lsquo;\0&rsquo;来判定是否为空entry也能过测例。
+xargs 开个buffer数组用来存新argv参数，最好作为全局变量，放栈上可能爆栈。然后就是从标准输入中一个一个字节读，并以\n为分割，解析出新的参数，再fork&#43;exec就好了。
+另外，我发现vscode自带的ClangFormat导致include的头文件顺序乱了，最终导致过不了编译，这是因为xv6里头文件的编码风格都是手动管理include顺序来保证不会miss definition，而不是用在每个头文件里定义宏来防止重复include。
+解决办法有两种，一种是加上// clang-format off 这一行就好了，另一种办法就是不用clang-format。
+Lab: system calls Using gdb 用gdb源码编译并安装好gdb，如果gdb时发现layout指令用不了，需要加&ndash;enable-tui=yes参数重新编译并安装一遍gdb，我按照这个博客重新装了一遍。
+这里涉及到了一些寄存器，risc-v硬件方面的前置知识可以看rcore的介绍
+sstatus:寄存器，其中有SPP位表示进入supervisor mode之前是什么特权级，0表示user mode，1表示supervisor mode。其中的SIE位是Supervisor Interupt Enable，PSIE位是Prior Supervisor Interupt Enable
+见The RISC-V Instruction Set Manual, Volume II: Privileged Architecture | Five EmbedDev (five-embeddev.com)
+epc: exeption program counter,发生异常时，在进入trap前，硬件自动将pc存到epc中，用于异常处理的返回。
+satp: 页表首地址
+从scause可以看出这是个page fault，sepc是发生缺页中断的指令地址，stval中保存的是导致page fault的非法地址。通过sepc去kernel.asm文件中找就能发发现page fault的位置。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://lyk.github.io/posts/xv6-lab/" /><meta property="og:image" content="http://lyk.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2024-02-15T16:31:50+08:00" />
+<meta property="article:modified_time" content="2024-02-15T16:31:50+08:00" /><meta property="og:site_name" content="My cool site" />
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="http://lyk.github.io/logo.png"/>
+
+<meta name="twitter:title" content="MIT 6.1810 fall2023 笔记"/>
+<meta name="twitter:description" content="MIT XV6 2023笔记 记录一下MIT 6.1810 2023 fall公开课（以前叫6.828）的lab，以及自己看xv6-book觉得有意思的点。一方面方便自己回顾，另外希望能帮上一些后来的朋友。
+Lab: Xv6 and Unix utilities sleep 没什么好说的
+pingpong 主要熟悉一下pipe系统调用，fd[2]第一个是rfd，第二个是wfd。思路就是创建两个pipe，父子进程通过管道进行同步，依次打印所需内容即可。
+primes 实现质数筛。handout里的这篇文章值得一读，主要的思想就是“多进程模型不仅仅是一种利用多处理器的手段，它本身也是一种解决一些问题的一种自然的模型”，比如这个质数筛，就是以“每个进程作为一层筛子”的思路来实现的，具体实现上面的文章里有伪代码，进程间通信还是用pipe。值得注意的是记得对于不需要的pipe fd要及时关掉（比如邻居与邻居的邻居之间的管道显然是不需要的，可以关闭），要不然递归创建pipe，fd会爆。xv6里一个进程默认的最大的打开的文件数是16。
+find unix里常用的一个命令，主要是用来熟悉文件系统调用，思路就是递归遍历指定的path下所有的目录以及文件，逐个判断是否与pattern match。文件的类型通过stat系统调用来获取。这里值得注意的是directory文件并不是按照来其中的entry数来确定大小的，它永远是固定大小的，inum=0的entry大概就表示是空entry吧？我这里通过判定ent.name == &lsquo;\0&rsquo;来判定是否为空entry也能过测例。
+xargs 开个buffer数组用来存新argv参数，最好作为全局变量，放栈上可能爆栈。然后就是从标准输入中一个一个字节读，并以\n为分割，解析出新的参数，再fork&#43;exec就好了。
+另外，我发现vscode自带的ClangFormat导致include的头文件顺序乱了，最终导致过不了编译，这是因为xv6里头文件的编码风格都是手动管理include顺序来保证不会miss definition，而不是用在每个头文件里定义宏来防止重复include。
+解决办法有两种，一种是加上// clang-format off 这一行就好了，另一种办法就是不用clang-format。
+Lab: system calls Using gdb 用gdb源码编译并安装好gdb，如果gdb时发现layout指令用不了，需要加&ndash;enable-tui=yes参数重新编译并安装一遍gdb，我按照这个博客重新装了一遍。
+这里涉及到了一些寄存器，risc-v硬件方面的前置知识可以看rcore的介绍
+sstatus:寄存器，其中有SPP位表示进入supervisor mode之前是什么特权级，0表示user mode，1表示supervisor mode。其中的SIE位是Supervisor Interupt Enable，PSIE位是Prior Supervisor Interupt Enable
+见The RISC-V Instruction Set Manual, Volume II: Privileged Architecture | Five EmbedDev (five-embeddev.com)
+epc: exeption program counter,发生异常时，在进入trap前，硬件自动将pc存到epc中，用于异常处理的返回。
+satp: 页表首地址
+从scause可以看出这是个page fault，sepc是发生缺页中断的指令地址，stval中保存的是导致page fault的非法地址。通过sepc去kernel.asm文件中找就能发发现page fault的位置。"/>
+<meta name="application-name" content="My cool site">
+<meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/xv6-lab/" /><link rel="prev" href="http://lyk.github.io/posts/multi-core-survey/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "BlogPosting",
+        "headline": "MIT 6.1810 fall2023 笔记",
+        "inLanguage": "en-us",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "http:\/\/lyk.github.io\/posts\/xv6-lab\/"
+        },"genre": "posts","wordcount":  865 ,
+        "url": "http:\/\/lyk.github.io\/posts\/xv6-lab\/","datePublished": "2024-02-15T16:31:50+08:00","dateModified": "2024-02-15T16:31:50+08:00","publisher": {
+            "@type": "Organization",
+            "name": ""},"author": {
+                "@type": "Person",
+                "name": "lyk"
+            },"description": ""
+    }
+    </script></head>
+    <body data-header-desktop="fixed" data-header-mobile="auto"><script type="text/javascript">(window.localStorage && localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : ('dark' === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : 'dark' === 'dark')) && document.body.setAttribute('theme', 'dark');</script>
+
+        <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
+    <div class="header-wrapper">
+        <div class="header-title">
+            <a href="/" title="lyk の blog">lyk的学习笔记</a>
+        </div>
+        <div class="menu">
+            <div class="menu-inner"><a class="menu-item" href="/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                    <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+                </a></div>
+        </div>
+    </div>
+</header><header class="mobile" id="header-mobile">
+    <div class="header-container">
+        <div class="header-wrapper">
+            <div class="header-title">
+                <a href="/" title="lyk の blog">lyk的学习笔记</a>
+            </div>
+            <div class="menu-toggle" id="menu-toggle-mobile">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+        <div class="menu" id="menu-mobile"><a class="menu-item" href="/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+                <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+            </a></div>
+    </div>
+</header><main class="main">
+                <div class="container"><div class="toc" id="toc-auto">
+            <h2 class="toc-title">Contents</h2>
+            <div class="toc-content" id="toc-content-auto"></div>
+        </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.1810 fall2023 笔记</h1><div class="post-meta">
+            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2024-02-15">2024-02-15</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;865 words&nbsp;
+                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;5 minutes&nbsp;</div>
+        </div><div class="details toc" id="toc-static"  data-kept="">
+                <div class="details-summary toc-title">
+                    <span>Contents</span>
+                    <span><i class="details-icon fas fa-angle-right" aria-hidden="true"></i></span>
+                </div>
+                <div class="details-content toc-content" id="toc-content-static"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#lab-xv6-and-unix-utilities">Lab: Xv6 and Unix utilities</a></li>
+    <li><a href="#lab-system-calls">Lab: system calls</a></li>
+    <li><a href="#lab-page-tables">Lab: page tables</a></li>
+    <li><a href="#lab-traps">Lab: traps</a></li>
+    <li><a href="#lab-cow">Lab: COW</a></li>
+    <li><a href="#lab-multithreading">Lab: Multithreading</a></li>
+    <li><a href="#lab-networking">Lab: networking</a></li>
+    <li><a href="#lab-locking">Lab: Locking</a></li>
+    <li><a href="#lab-file-system">Lab: file system</a></li>
+    <li><a href="#lab-mmap">Lab: mmap</a></li>
+  </ul>
+</nav></div>
+            </div><div class="content" id="content"><h1 id="mit-xv6-2023笔记">MIT XV6 2023笔记</h1>
+<p>记录一下<a href="https://pdos.csail.mit.edu/6.828/2023/" target="_blank" rel="noopener noreffer ">MIT 6.1810 2023 fall公开课</a>（以前叫6.828）的lab，以及自己看xv6-book觉得有意思的点。一方面方便自己回顾，另外希望能帮上一些后来的朋友。</p>
+<h2 id="lab-xv6-and-unix-utilities">Lab: Xv6 and Unix utilities</h2>
+<p>sleep 没什么好说的</p>
+<p>pingpong 主要熟悉一下pipe系统调用，fd[2]第一个是rfd，第二个是wfd。思路就是创建两个pipe，父子进程通过管道进行同步，依次打印所需内容即可。</p>
+<p>primes 实现质数筛。handout里的这篇<a href="http://swtch.com/~rsc/thread/" target="_blank" rel="noopener noreffer ">文章</a>值得一读，主要的思想就是“多进程模型不仅仅是一种利用多处理器的手段，它本身也是一种解决一些问题的一种自然的模型”，比如这个质数筛，就是以“每个进程作为一层筛子”的思路来实现的，具体实现上面的文章里有伪代码，进程间通信还是用pipe。值得注意的是记得对于不需要的pipe fd要及时关掉（比如邻居与邻居的邻居之间的管道显然是不需要的，可以关闭），要不然递归创建pipe，fd会爆。xv6里一个进程默认的最大的打开的文件数是16。</p>
+<p>find unix里常用的一个命令，主要是用来熟悉文件系统调用，思路就是递归遍历指定的path下所有的目录以及文件，逐个判断是否与pattern match。文件的类型通过stat系统调用来获取。这里值得注意的是directory文件并不是按照来其中的entry数来确定大小的，它永远是固定大小的，inum=0的entry大概就表示是空entry吧？我这里通过判定ent.name == &lsquo;\0&rsquo;来判定是否为空entry也能过测例。</p>
+<p>xargs 开个buffer数组用来存新argv参数，最好作为全局变量，放栈上可能爆栈。然后就是从标准输入中一个一个字节读，并以\n为分割，解析出新的参数，再fork+exec就好了。</p>
+<p>另外，我发现vscode自带的ClangFormat导致include的头文件顺序乱了，最终导致过不了编译，这是因为xv6里头文件的编码风格都是手动管理include顺序来保证不会miss definition，而不是用在每个头文件里定义宏来防止重复include。</p>
+<p>解决办法有两种，一种是加上// clang-format off 这一行就好了，另一种办法就是不用clang-format。</p>
+<h2 id="lab-system-calls">Lab: system calls</h2>
+<p><strong>Using gdb</strong> 用gdb源码编译并安装好gdb，如果gdb时发现layout指令用不了，需要加&ndash;enable-tui=yes参数重新编译并安装一遍gdb，我按照<a href="https://zhuanlan.zhihu.com/p/638731320" target="_blank" rel="noopener noreffer ">这个博客</a>重新装了一遍。</p>
+<p>这里涉及到了一些寄存器，risc-v硬件方面的前置知识可以看<a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/" target="_blank" rel="noopener noreffer ">rcore的介绍</a></p>
+<p>sstatus:寄存器，其中有SPP位表示进入supervisor mode之前是什么特权级，0表示user mode，1表示supervisor mode。其中的SIE位是Supervisor Interupt Enable，PSIE位是Prior Supervisor Interupt Enable</p>
+<p>见<a href="https://five-embeddev.com/riscv-isa-manual/latest/supervisor.html" target="_blank" rel="noopener noreffer ">The RISC-V Instruction Set Manual, Volume II: Privileged Architecture | Five EmbedDev (five-embeddev.com)</a></p>
+<p>epc: exeption program counter,发生异常时，在进入trap前，硬件自动将pc存到epc中，用于异常处理的返回。</p>
+<p>satp: 页表首地址</p>
+<p><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240116152108905.png"
+        data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240116152108905.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240116152108905.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240116152108905.png 2x"
+        data-sizes="auto"
+        alt="C:\Users\lyk\AppData\Roaming\Typora\typora-user-images\image-20240116152108905.png"
+        title="image-20240116152108905" /></p>
+<p>从scause可以看出这是个page fault，sepc是发生缺页中断的指令地址，stval中保存的是导致page fault的非法地址。通过sepc去kernel.asm文件中找就能发发现page fault的位置。</p>
+<p>abi规范里，ra是reture address, a0是返回值。</p>
+<p><strong>trace &amp; sysinfo</strong> 这两个lab都很简单，这个lab中值得学习的是system call的流程：用户态在ecall前，会将系统调用号放在a7中，然后进行ecall。</p>
+<p>xv6中用户态直接接触的这个这个用户态的带ecall的函数是由perl脚本生成的：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-perl" data-lang="perl"><span style="display:flex;"><span><span style="color:#66d9ef">sub</span> <span style="color:#a6e22e">entry</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">my</span> $name <span style="color:#f92672">=</span> shift;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">print</span> <span style="color:#e6db74">&#34;.global $name\n&#34;</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">print</span> <span style="color:#e6db74">&#34;${name}:\n&#34;</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">print</span> <span style="color:#e6db74">&#34; li a7, SYS_${name}\n&#34;</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">print</span> <span style="color:#e6db74">&#34; ecall\n&#34;</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">print</span> <span style="color:#e6db74">&#34; ret\n&#34;</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>entry(<span style="color:#e6db74">&#34;sysinfo&#34;</span>);
+</span></span></code></pre></div><p>生成的结果在usys.S中，.global sysinfo标记的函数对应于user.h中这个函数的声明：</p>
+<pre tabindex="0"><code>int sysinfo(struct sysinfo*); //在用户应用眼里
+</code></pre><p>ecall调用会将控制流导向trampline, trampline做完一系列保存trap context以及切换页表的工作后，会调用trap.c中的usertrap函数，usertrap函数根据scause寄存器知道这是个系统调用，于是路由到syscall.c的syscall函数。syscall根据这个调用号，在syscall.c中的函数指针数组中来选到对应的系统调用，并将结果存到a0中:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>p<span style="color:#f92672">-&gt;</span>trapframe<span style="color:#f92672">-&gt;</span>a0 <span style="color:#f92672">=</span> syscalls[num]();
+</span></span></code></pre></div><p>当num为SYS_sysinfo时，其实际call的是这个函数：</p>
+<pre tabindex="0"><code>extern uint64 sys_sysinfo(void);
+</code></pre><p>那传的参数呢？还在a0~a5寄存器里，通过argXX解析出来：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>uint64
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">sys_sysinfo</span>(<span style="color:#66d9ef">void</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">struct</span> sysinfo info;
+</span></span><span style="display:flex;"><span>    uint64 addr;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">argaddr</span>(<span style="color:#ae81ff">0</span>, <span style="color:#f92672">&amp;</span>addr);
+</span></span><span style="display:flex;"><span>    ...
+</span></span><span style="display:flex;"><span> }
+</span></span></code></pre></div><h2 id="lab-page-tables">Lab: page tables</h2>
+<p>xv6是有内核页表的，内核也是运行在虚拟内存上，也就是MMU是启用的。但是与用户程序不同的是，有些段的映射实际上采用的是Identical Mapping（rcore里面叫这个），就是虚拟地址直接映射到物理地址，比如内核的代码段、数据段等等。注意这并不是MMU硬件上提供的额外的模式，而是在构建内核地址空间时自己插入对应的映射关系。内核也采用虚拟地址空间有这些好处：1.能用trampline这样的trick; 2.能利用页表的访问控制功能，比如以页级别来控制R/W/X等，这样本身会让内核更加健壮，同时也能做一些额外的trick,比如guard page。</p>
+<p>内核采用恒等映射的好处有很多，比如copyout函数，就是通过查阅用户pagetable来获得物理地址，由于内核是恒等映射，所以可以直接将其当做虚拟地址，通过memove来将数据从内核空间拷贝到用户地址空间。内核有权限操作这个虚拟地址的原因是：内核在创建自己的虚拟地址空间时，将所有KERBASE到PHYSTOP之间的所有RAM都进行了恒等映射。</p>
+<p>创建内核页表的函数vm.c是kvmake，完成了如下的内核系统构建。走kalloc分配给内核（比如kernel stack）或者用户（比如brk）的page是属于free memory；然后虚拟空间的trampoline实际上映射到的是物理地址中kernel text的位置，也就是这段物理代码所在的page在内核虚拟地址中被两次映射了。</p>
+<!-- raw HTML omitted -->
+<p><strong>speed up system calls</strong> 相比于其余两个checkpoint，这个checkpoint要改的地方稍微多一些。主要是要在fork时（创建新进程时），为该进程开辟一个新的页用来存储pid，这个页称为USYSCALL_PAGE，该页的起始地址为USYSCALL，紧接在trapframe之下。这样，进程就能通过ugetpid系统调用，在不进入内核态的情况下完成这个系统调用，减少了上下文切换以及页表切换的开销。ugetpid如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#a6e22e">ugetpid</span>(<span style="color:#66d9ef">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">struct</span> usyscall <span style="color:#f92672">*</span>u <span style="color:#f92672">=</span> (<span style="color:#66d9ef">struct</span> usyscall <span style="color:#f92672">*</span>)USYSCALL;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> u<span style="color:#f92672">-&gt;</span>pid;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这种简单“getXXX&quot;的系统调用，有不少是在进程开始时就能确定的常量（或者后续可能会变，但是内核维护开销很小的变量），这种情况将这个变量塞到USYSCALL_PAGE中，就能让用户进程能够在用户态完成系统调用。</p>
+<p>这个checkpoint具体要改的地方一是在proc.c 的allocproc函数中，需要分配一个USYSCALL_PAGE, 可以参照Trapframe page的分配；然后在exec函数回收旧pagetable时，即proc_freepagetable函数中，要uvmunmap掉USYSCALL_PAGE，因为xv6框架提供的这个uvmfree只能free掉低地址空间的page, 高地址空间的TRAMPOLINE，TRAPFRAME，USYSCALL需要自己手动unmap掉：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// Free a process&#39;s page table, and free the
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// physical memory it refers to.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">void</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">proc_freepagetable</span>(<span style="color:#66d9ef">pagetable_t</span> pagetable, uint64 sz)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">uvmunmap</span>(pagetable, TRAMPOLINE, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">uvmunmap</span>(pagetable, TRAPFRAME, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">uvmunmap</span>(pagetable, USYSCALL, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">uvmfree</span>(pagetable, sz); <span style="color:#75715e">// also free physical memory
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}
+</span></span></code></pre></div><p>这个checkpoint最大的收获还是了解了fork和exec这两个函数的详细实现，包括fork中的新进程创立时的地址空间复制，一次调用两次返回的实现；exec中的ELF文件的载入以及argc、argv传参的实现。</p>
+<p><strong>Print a page table &amp; page access</strong></p>
+<p>这两个checkpoint都很简单，添加的代码也很独立，思路也都是遍历一下页表，主要就是学习一下页表entry的结构、walk函数（用来根据一个地址找到对应的entry）遍历三级页表的过程。</p>
+<p>值得注意的是，riscv的页表entry中的A和D这两个分别用来记录一个页是否被access以及是否被写过，这两个bit是在硬件层面被set的。操作系统可以利用这两bit来进行缓存池管理。</p>
+<p>这里再贴一下用户进程的地址空间，要烂熟于心，之后实现cow的lab的调试时会用：</p>
+<!-- raw HTML omitted -->
+<h2 id="lab-traps">Lab: traps</h2>
+<p><strong>backtrace</strong> 只要清楚risc-v中栈的结构思路就很清晰了，如下图：</p>
+<p><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240125095227075.png"
+        data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240125095227075.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240125095227075.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240125095227075.png 2x"
+        data-sizes="auto"
+        alt="C:\Users\lyk\AppData\Roaming\Typora\typora-user-images\image-20240125095227075.png"
+        title="image-20240125095227075" /></p>
+<p>可以看到，一个栈中，ra = *(fp+8)，previous fp = *(fp+16)，利用这个关系就能进行栈展开，并打印ra了。何时停止呢？官方handout中提示了：由于栈底一定是PGSIZE对齐的，所以只要当fp%PGSIZE==0时，就能停止展开了。</p>
+<p><strong>sigalarm</strong></p>
+<p>一开始我还以为要写汇编代码，有点畏难。但是想清楚执行流之前切换的本质其实就是trapframe的切换后，发现其实要做的工作很少，userreturn什么的都能用现成的逻辑。</p>
+<p>从要求实现的两个系统调用说起：sigalarm和sigreturn。</p>
+<p>那为了支持sighandler这个额外的执行流，需要哪些额外的资源呢？</p>
+<p>为了支持能在sighandler中进行系统调用，所以trapframe是必须的，而为了不覆写正常执行流中的trapframe，那就需要将之前的trapframe暂时保存下来，在sigreturn的时候再替换回去，这样sigreturn系统调用结束后，就能拿到正常的执行流的trapframe，也就能继续正常执行流了。这个正常执行流的trapframe我存到了一个叫struct trapframe *backup_trapframe的指针中，考虑到大部分进程其实是不会调用sigalarm的，所以我将其进行懒分配了。</p>
+<p>那需要有额外的栈吗？其实不需要，直接在原先的栈上进行就好了。</p>
+<p>综上，我在struct porc中加了这些字段：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> proc {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  uint64 alarm_interval;  <span style="color:#75715e">// how many ticks an alarm should happen
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  uint64 ticks;  <span style="color:#75715e">// how many ticks has passed since last alarm
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  uint64 alarm_handler;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">struct</span> trapframe <span style="color:#f92672">*</span>backup_trapframe; <span style="color:#75715e">// to backup previous trapframe
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}
+</span></span></code></pre></div><p>然后在usertrap中处理时钟中断的部分，也就是if(which_dev == 2)中添加计时、返回等逻辑即可。</p>
+<p>sigalarm就是注册一下alarm_interval和alarm_handler函数指针，alarm_handler用于在触发alarm时，将sepc寄存器设为该值。该checkpoint中要求alarm_handler是不可重入的，但是直接关掉中断使能的话，对性能的影响就太大了，所以我的处理方法很直接：如果发现正在正在处理alarm_handler，在遇到时钟中断时就不继续进行计时，以免重复进入alarm_handler。</p>
+<p>sigreturn更简单了，恢复一下之前的backup_trapframe，重置ticks即可。不过这里有个很细节的地方，那就是sys_sigreturn返回值必须为p-&gt;trapframe-&gt;a0！这是因为这个sigreturn与其他的系统调用不一样，他不是主执行流主动ecall的，所以主执行流也根本不需要这个返回值。由于系统调用的返回值是存在a0寄存器中的，所以这会覆盖主执行流的原先的a0的值，这就会产生问题。所以解决方案就是让sigreturn返回p-&gt;trapframe-&gt;a0，我认为这个trick还挺巧妙的。</p>
+<h2 id="lab-cow">Lab: COW</h2>
+<p>相对于前面的lab来说，这个lab难度明显提升了一些，特别是考虑到很多corner case的情况下（usertests里的测试很好地覆盖了，很敬佩写这些test的作者，每个test都很有指向性，又不至于很复杂，值得学习）。</p>
+<p>cow为内核带来了share page的特性，其核心思想就是：在fork时不真正从parent那copy memory，而是将页表中共享的page对应的页表项标记为COW page。</p>
+<p>大方向确定了，下面就是要改哪的问题了。</p>
+<p><strong>fork</strong></p>
+<p>fork中要改的就是uvmcopy函数，把父进程和子进程的text、data、stack、heap都标记为COW page，并进行bookeeping来更新该物理page的引用计数（什么是bookeeping下面会讲）。那么怎么标记一个COW page呢？看页表项的结构：</p>
+<p><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png"
+        data-srcset="https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png, https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png 1.5x, https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png 2x"
+        data-sizes="auto"
+        alt="https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png"
+        title="PTE" /></p>
+<p>RSW是为os预留的2个bit，可以利用RSW中的其中一位来标记这是一个COW page。我是用的PTE_SHARED = 1&laquo;8来表示。</p>
+<p><strong>bookeeping</strong></p>
+<p>由于cow page是多进程共享的，那么何时能通过kfree来回收这个page呢？很自然的一个想法就是为每个物理page维护一个引用计数，而维护这个引用计数的工作就是bookeeping。</p>
+<p>如何做bookeeping，对于生产级别的内核来说，其实是个比较复杂的问题，比如linux就遇到了一些问题，<a href="https://lwn.net/Articles/849638/" target="_blank" rel="noopener noreffer ">Patching until the COWs come home</a>。但是xv6很简单，cow没有和其他复杂的的特性耦合在一起，所以bookeeping的工作其实很简单，最直接的想法就是为<strong>每个</strong>物理page都维护一个引用计数，直接分配一个超大数组来连续存这些引用计数。要更改时直接通过page id来进行进行索引就好了。为了保证引用计数原子操作，一个page的引用计数就是uint64，16GB的内存就需要2048个page也就是32MB的内存来维护这些索引，这个开销其实不小。</p>
+<p>考虑到其实只有COW page（准确来说是多个进程共享的page，包括text段）需要维护引用计数，所以可以通过只维护共享状态的page来引用计数来减少这部开销。而cow page与其引用计数的关系可以用一个哈希表来存，冲突解决方式就用链表，链表结点定义如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> ref_entry {
+</span></span><span style="display:flex;"><span>	uint32 ref;
+</span></span><span style="display:flex;"><span>	uint64 phy_addr;
+</span></span><span style="display:flex;"><span>	uint32 next; <span style="color:#75715e">//这里指针用索引表示
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// sizeof(ref_entry) = 16
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define PAGE_CNT 128
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define TOTAL_ENTRY_CNT PAGE_CNT*PGSIZE/sizeof(struct ref_entry)
+</span></span></span></code></pre></div><p>我PAGE_CNT个page来存所有的ref_entry, 支持的shared page的数量可以计算出来，用TOTAL_ENTRY_CNT来表示。</p>
+<p>链表结点定义中，next指针我是用uint32的索引表示，当时设计时是为了将ref_entry的size控制在16 byte。</p>
+<p>哈希表的index数组可以用一个page来存，也就是4096/sizeof(uint32) = 1024 = 2^10个。由于physical address是PGSIZE对齐的，所以可以用physical address的12~22位作为哈希值，进行分桶。考虑到这种hash方式会比较平均，所以没设计扩容和rehash。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#define HASH_INDEX_CNT PGSIZE/sizeof(uint16)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define PA2IND(pa) ((((uint64)pa) &gt;&gt; 12) &amp; (HASH_INDEX_CNT-1))
+</span></span></span></code></pre></div><p>同步方面，能有无锁实现，简单起见我直接用来一把spinlock来控制，最终哈希表的定义如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">struct</span> spinlock lock;
+</span></span><span style="display:flex;"><span>    uint16 <span style="color:#f92672">*</span>hash_index;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">struct</span> ref_entry <span style="color:#f92672">*</span>entries;
+</span></span><span style="display:flex;"><span>}ref_manager;
+</span></span></code></pre></div><p>说了这么多，其实就是实现一个哈希表，只是C语言没有现成的而已~</p>
+<p>再为这个ref_manager提供一下ref和unref接口。第一次ref时，将ref设为2，之后ref就ref++。unref的话就是ref&ndash;，ref为0时交由外部kfree掉。只有fork时会调用ref，调用unref的地方较多，三个地方：store page fault处理、copyout to cow page、进程exit时(在xv6中是父进程wait时)通过uvunmap函数回收地址空间时。</p>
+<p><strong>store page fault</strong></p>
+<p>前面的准备工作做好了，接下来就是cow的核心了，在trap.c的usertrap函数里，对<strong>store page fault</strong>进行处理就好了。即如果发现是cow page，那就拷贝一份新的，修改一下对应页表项为PTE_W，并unref一下原来的cow page就好了。usertrapret后，会在sepc的位置重新执行发生store page fault的指令。</p>
+<p>那陷入usertrap后，怎么判断是不是store page fault呢？认识一下scause寄存器结构：</p>
+<!-- raw HTML omitted -->
+<p>scause其取值含义：</p>
+<!-- raw HTML omitted -->
+<p>可以看到，scause最高位用来表示是否是Interrupt，所以risc-v将陷入内核态的原因分为两类，一类异常，比如ecall会让scause变成8，所以系统调用其实可以算作是异常，又比如page fault这种；另一类就是Interupt，硬件中断和软件中断。</p>
+<p>这个lab我们只要关心Store page fault（scause = 15），可以看到，在riscv它和Load page fault一样属于异常，即“缺页异常”。</p>
+<p><strong>copyout</strong></p>
+<p>内核将数据拷贝到用户态的功能函数，也要加上和上面一样的逻辑来支持往cow page上写东西。</p>
+<p><strong>一些小优化</strong></p>
+<ul>
+<li>
+<p>page fault时，如果发现该进程是该cow page的最后引用者，那就不需要复制再拷贝一份新的了，只要改页表项就行了。</p>
+</li>
+<li>
+<p>fork时，text page也shared。标识shared的text page还是用PTE_SHARED 这个标识位，它和cow page的区别是flag中有PTE_X没PTE_W。它也需要bookeeping，但是在page fault中如果发现正尝试写这个page，就直接把该进程kill掉。</p>
+</li>
+<li>
+<p>fork时， guard page不需要分配物理内存。</p>
+</li>
+</ul>
+<p><strong>一些debug建议</strong></p>
+<ul>
+<li>做优化时，最好一个一个加，一股气全加上再测试，会导致难以定位问题。</li>
+<li>usertests过不了的点，提取出来自己写个mytest.c文件，将init.c中exec(&ldquo;sh&rdquo;,0)改为exec(&ldquo;mytest&rdquo;), 甚至直接将initcode.S中的.string &ldquo;/init\0&quot;改为“/mytest\0”都行，改完后还得用od命令转为字节码，再放到uchar initcode数组中去，有点麻烦。减少无关的逻辑。然后就是不断缩小范围，找到最小出bug的测例。</li>
+<li>usertrap中可以通过trapframe的epc和ra定位到陷入内核态之前的pc指令位置，再拿这个在汇编文件中搜索就能找到对应的语句。</li>
+<li>gdb和log要灵活搭配使用，遇到bug时log先行，log最大的作用还是在没有头绪时打印一些可能相关的信息，比如发现内存回收不完全时就打印内存usage；gdb的作用是更细微地跟踪程序，即使完全没有头绪，也能用gdb跟踪单步来帮助梳理一些之前没注意到的地方，触发一些思考。</li>
+</ul>
+<p>cow是内核中lazy allocation的典型体现，该思想在内核中的体现很多，比如exec时的 lazy loading，sbrk时的lazy allocation等。操作系统为了尽可能充分并合理地利用内存资源，为我们做了很多：）</p>
+<h2 id="lab-multithreading">Lab: Multithreading</h2>
+<p>这个lab非常简单，第一个测试点是完善一个用户态协程库，thread定义如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#66d9ef">thread</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">struct</span> context context;  <span style="color:#75715e">// callee save registers
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">char</span>       stack[STACK_SIZE]; <span style="color:#75715e">/* the thread&#39;s stack */</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span>        state;             <span style="color:#75715e">/* FREE, RUNNING, RUNNABLE */</span>
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>我们要做的和xv6内核中的的scheduler以及context switch的过程非常类似，只是我们没有专门的内核态的scheduler线程，而是由各个线程yeild后自己来选择要下一个要调度的RUNNABLE线程，策略还是round robin。context switch的汇编代码直接原封不动地抄switch.S的就行，创建新线程就是设置好sp和ra，然后设为RUNNABLE，等待被调度，。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> 
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">thread_create</span>(<span style="color:#66d9ef">void</span> (<span style="color:#f92672">*</span>func)())
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">struct</span> <span style="color:#66d9ef">thread</span> <span style="color:#f92672">*</span>t;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (t <span style="color:#f92672">=</span> all_thread; t <span style="color:#f92672">&lt;</span> all_thread <span style="color:#f92672">+</span> MAX_THREAD; t<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (t<span style="color:#f92672">-&gt;</span>state <span style="color:#f92672">==</span> FREE) <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  t<span style="color:#f92672">-&gt;</span>state <span style="color:#f92672">=</span> RUNNABLE;
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// YOUR CODE HERE
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  t<span style="color:#f92672">-&gt;</span>context.sp <span style="color:#f92672">=</span> (uint64)(t<span style="color:#f92672">-&gt;</span>stack<span style="color:#f92672">+</span>STACK_SIZE);
+</span></span><span style="display:flex;"><span>  t<span style="color:#f92672">-&gt;</span>context.ra <span style="color:#f92672">=</span> (uint64)func;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> 
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">thread_schedule</span>(<span style="color:#66d9ef">void</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">thread_switch</span>((uint64)t, (uint64)next_thread); 
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// new thread start from here, and return to &#39;void (*func)()&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>后面两个测试点是教pthread库的用法的，没什么好说的。</p>
+<p>lab虽然很简单，但是xv6 book中Scheduling这一章还是很有干货的。</p>
+<p>xv6 book中讲了xv6进程调度的机制，一言以蔽之：</p>
+<blockquote>
+<p>Procedures that intentionally transfer control to each other via thread switch are sometimes referred to as <strong>coroutines</strong>; in this example, <strong>sched</strong> and <strong>scheduler</strong> are <strong>co-routines of each other</strong>.</p>
+</blockquote>
+<p>所以本质上内核调度就是协程，通过RUNNABLE process yield / WAITING proccess &gt;sched&gt; context switch&gt; scheduler &gt; context&gt; sched&gt; (RUNNABLE process) yield这个过程来进行两个内核线程的在一个CPU上的切换。</p>
+<p>这里提到了WAITING和RUNNABLE状态的切换，就是xv6的sleep\wakeup机制，以及其sleep接口中为啥强制要一个spinlock？答：是为了防止lost wakeup问题，通过保证进入sleep时持有锁，来保证sleep进程看到的“条件快照”和更改进程state为WAITING这个过程是原子的，sleep在修改完state后才将锁释放，然后wakeup进程才能获得锁并修改条件，然后就能查询到sleep进程state是WAITING，这样就不会lost wakeup了。</p>
+<p>说到sleep\wakeup机制在很多真实系统中都有应用，来做进程调度控制的，比如wait, pipe, read等，这种段时间内可能无法获得需要的条件的时候，就需要sleep来把cpu的控制权yeild出去。比如Linux内核中也是用的这个机制，区别是xv6这个wait是wait channel，每次wakeup进程都需要遍历proc数组来找到所有等待在这个条件的进程（查询进程状态是需要获取锁的），但是Linux的sleep和wait是为一个条件去维护一个wait queue（我感觉本质上就是条件变量），这样就能O(1)的复杂度找到所有相关的进程了，避免了给不相关的进程上锁。</p>
+<p>还有些有意思的点，主要是一些偏实现的东西，比如context switch的过程中为何要保证持有原进程的锁（为了防止其他CPU上的scheduler同时调度到这个进程上去），然后还讲了exit/wait这一对系统调用中，涉及到p-&gt;parent时，为何要用一把全局的大锁wait_lock做并发访问。</p>
+<p>execercise里有一个是去掉xv6 per-cpu的内核调度进程，让进程yield时自己来选择下一个RUNNABLE的进程，直接context switch到被调度的进程上去，难点有两个，一是如何防止多个线程同时调度到同一个线程上，二是如何预防死锁。</p>
+<h2 id="lab-networking">Lab: networking</h2>
+<p>这个lab要求我们为qemu的e1000虚拟网卡编写驱动程序，代码不多，但是由于这些硬件设备的手册非常难读（至少我读着很吃力，有些找不到重点），所以这个lab对我来说有点难度。</p>
+<p>难点在于理解e1000的工作原理：e1000有两个队列，分别用来接收以及发送以太网数据包，xv6中分别称为rx_ring和tx_ring。这两个队列都是环形队列，并映射在内存中。软件可以通过设置e1000上的一些寄存器来定义这个环形队列，包括内存中的起始地址、总长度、head、tail。队列中的元素是描述字（description，硬件一般都用这个术语），一个描述字有16 bytes，用于描述其对应的数据包的地址、长度、状态等信息，发送描述字和接收描述字分别定义如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> tx_desc
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  uint64 addr;
+</span></span><span style="display:flex;"><span>  uint16 length;
+</span></span><span style="display:flex;"><span>  uint8 cso;
+</span></span><span style="display:flex;"><span>  uint8 cmd;
+</span></span><span style="display:flex;"><span>  uint8 status;
+</span></span><span style="display:flex;"><span>  uint8 css;
+</span></span><span style="display:flex;"><span>  uint16 special;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> rx_desc
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  uint64 addr;       <span style="color:#75715e">/* Address of the descriptor&#39;s data buffer */</span>
+</span></span><span style="display:flex;"><span>  uint16 length;     <span style="color:#75715e">/* Length of data DMAed into data buffer */</span>
+</span></span><span style="display:flex;"><span>  uint16 csum;       <span style="color:#75715e">/* Packet checksum */</span>
+</span></span><span style="display:flex;"><span>  uint8 status;      <span style="color:#75715e">/* Descriptor status */</span>
+</span></span><span style="display:flex;"><span>  uint8 errors;      <span style="color:#75715e">/* Descriptor Errors */</span>
+</span></span><span style="display:flex;"><span>  uint16 special;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>环形队列结构如下：</p>
+<!-- raw HTML omitted -->
+<p>其中head和tail之间是e1000硬件可以使用的空闲的描述字，e1000每收到一个新的数据包，就会将其head++；操作系统从tail后的位置开始处理e1000交付的数据，每处理完一个，创建一个新的空的描述字交还给e1000供其使用，并由软件设置tail++。</p>
+<p>发送过程：我们将数据经过网络栈层层打包，最后成为一个以太网数据包，将这个数据包的地址、长度等信息构建出这个tx_desc，放在tx_ring的tail上，设置并更新tx_tail寄存器，接下来硬件就会将这个数据发送出去。</p>
+<p>接收过程：e1000会在网络上嗅探正确的MAC地址的数据包，如果与本机的MAC地址匹配，e1000就会从rx_ring的head处取下一个描述字，并将数据通过DMA的方式写到描述字对应的内存中，并在描述字中保存好length、status等信息，head++。DMA完成后，e1000会产生一个硬件中断，来通知操作系统来取这个数据。操作系统会调用对应的中断处理handler，我们要实现的e1000_recv函数，就是这个handler的第一环。具体的任务就是，将rx_ring中tail上的tx_desc从已经放好数据的mbuf取下来，放到网络栈中层层解包，最终交付给对应的用户进程。每取下一个mbuf，都需要新申请一个空的mbuf来替换它，通过修改rx_desc来告知e1000这个新mbuf的位置。</p>
+<p>至此，结合官方的handout中的提示，代码就很简单了。唯一一个需要注意的点e1000_recv是调用net_rx不能持有锁，不然会死锁，因为net_rx中涉及到ARP请求的处理，其中又调用了e1000_transmit函数，导致重复获取锁。</p>
+<p>虽然lab名叫做networking，但是其实网络栈部分，以与文件系统结合的核心部分，其实都已经实现完了。其实这个lab叫做device driver更合适。</p>
+<p>xv6-book中对应的章节主要讲的是：console driver，UART串口，文件系统层面抽象为一个“console”文件；然后还讲了时钟中断设备，以及timervec。</p>
+<h2 id="lab-locking">Lab: Locking</h2>
+<p>本来以为是要实现什么locking，结果lab是在教怎么减小锁的粒度，第一个checkpoint是将原先的全局共享的内存分配器改为每个CPU独享一个内存分配器；第二个checkpoint是将原先的文件系统的按双向链表组织的buffer cache改为用哈希表组织，锁的粒度减小为以桶为单位（桶就是hash值为一样的元素）；handout的提示中希望将freelist、lru_replacer、hashtable联合起来设计，freelist和lru_replacer在他这其实就是扫描一下所有节点，其实这是避免不了一个大锁的存在的，要减小争用其实最合理的做法还是将这几个部件分开，起码LRU和freelist的工作不能影响正常的查询工作。</p>
+<h2 id="lab-file-system">Lab: file system</h2>
+<p>xv6的文件系统从上到下分为这些模块：</p>
+<p><img
+        class="lazyload"
+        src="/svg/loading.min.svg"
+        data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240211112343972.png"
+        data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240211112343972.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240211112343972.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240211112343972.png 2x"
+        data-sizes="auto"
+        alt="C:\Users\lyk\AppData\Roaming\Typora\typora-user-images\image-20240211112343972.png"
+        title="image-20240211112343972" /></p>
+<p>file descriptor是用来抽象各种“文件资源”的，不止是磁盘上的文件，pipe、proc/pid、network connection这些都可以在这一层被抽象为可读写的文件。他们被统一抽象为一个个struct file，file descriptor就是表示一个进程中对应文件在struct file*[]表中的索引。</p>
+<p>pathname\directory 这一层就是对目录结构的设计，首先，整体逻辑上上肯定是一个文件目录树；差别在于目录文件结构的设计，在xv6中，将其内容设为512个dirent的数组，一个dirent就是一对name+inum。要查找一个文件，就需要遍历这个数组，在小文件夹的情况下这是比较高效的，但是对于很大的文件夹查找性能不好。如Windows的NTFS就是树形的目录文件索引。</p>
+<p>Inode 这个inode层是文件系统的核心。一个inode表示一个文件，分为内存中的inode，磁盘中的dinode。dinode就是文件系统inode表中实际存储的信息，一个文件由(dev, inum)这个pair来唯一标识，inode就是dinode加上内存中需要额外·维护的一些信息，比如ref计数等。inode有一些方法，主要是iget、readi、writei等方法，都在fs.c文件中；这些方法调用下面的buffer cache、logging相关的函数来完成对一个文件的读写操作，典型函数的函数签名：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#a6e22e">iget</span>(uint dev, uint inum)
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">writei</span>(<span style="color:#66d9ef">struct</span> inode <span style="color:#f92672">*</span>ip, <span style="color:#66d9ef">int</span> user_src, uint64 src, uint off, uint n)
+</span></span></code></pre></div><p>这一层核心的就是inode buffer的管理（通过维护C指针引用计数来判断何时可以将inode释放掉，哎，感觉这也是非常C语言的做法，如果是现代一点的语言就没这么麻烦了）以及bmap函数（将文件逻辑块号转为磁盘物理块号）。</p>
+<p>接下来一层是logging，日志记录层。和数据库中的日志的主要区别在于：（1）文件系统的日志是以块（block）为粒度，log的内容就是一个个文件块（所以logging也是建立在buffer cache layer上的）；（2）文件系统的日志只做redo，不做undo，这说明xv6的文件系统在提交时采用的是no-force+no-steal的策略。即一个事务在提交时不会强制刷盘，但是在刷盘时，必须所有事务都已经成功提交了。(3) transaction的定义是比较灵活的，一般是以一个系统调用为单位，但是这也不是必须的，因为xv6文件系统中的transaction为了维护的consistency特性是指bitmap、inode文件内容等得保持一致，比如一个操作让一个文件新增一个data block，但是没有修改bitmap就挂掉了（或者反过来），这就是不一致。</p>
+<p>end_op()函数中如果发现此时没有正在进行的事务，就会调用commit函数，来提交这段时间所有的修改：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">commit</span>()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (log.lh.n <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">write_log</span>();     <span style="color:#75715e">// Write modified blocks from cache to log
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">write_head</span>();    <span style="color:#75715e">// Write header to disk -- the real commit
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">install_trans</span>(<span style="color:#ae81ff">0</span>); <span style="color:#75715e">// Now install writes to home locations
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    log.lh.n <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">write_head</span>();    <span style="color:#75715e">// Erase the transaction from the log
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>注意，在commit之前，任何修改都不会同步到硬盘上去，这是因为这个文件系统做不了undo。</p>
+<p>buffer cache层就是做一个buffer pool，没什么好说的。向上面提供的接口主要是bget、bread、bwrite。</p>
+<p>disk层是磁盘驱动程序，提供virtio_disk_rw方法，也是通过磁盘的控制字来对磁盘进行控制。</p>
+<p>有点值得注意的——并发控制。在xv6的文件系统中，没有逻辑上的锁，全都是物理上的互斥sleep lock，不支持读写锁。主要的上锁对象是inode和mbuf。前者是锁一个文件，由ilock、iunlock来控制，这意味着只能有一个process同时访问一个文件，访问包括读和写。后者是锁一个buffer——其实我个人认为这个buffer只有在其中的内容是bitmap block、inode block时才需要，data block是不需要锁来保护的，这是前面说了ilock保证了文件只能串行访问，而一个data block只有可能属于一个文件，所以data block的串行访问是自然保证的。</p>
+<p>最后，xv6里有三类资源是作为池化资源来访问的，struct file, struct inode, struct buf，xv6的实现就是一个大数组——也没有LRU之类的evict机制（struct buf那个LRU没有任何实际意义，我认为纯属设计失误），数组分配完了就只能panic了。xv6 book中file system章节后提出了几个问题，引导我们改进：</p>
+<blockquote>
+<ol>
+<li>Why panic in balloc ? Can xv6 recover?</li>
+<li>Why panic in ialloc ? Can xv6 recover?</li>
+<li>Why doesn’t filealloc panic when it runs out of files? Why is this more common and
+therefore worth handling?</li>
+</ol>
+</blockquote>
+<p><strong>Larger files</strong> 这个checkpoint就是让我们像ext2一样，增加&quot;doubly-indirect&rdquo; block以支持更大的文件，要改的地方就是bmap函数，照猫画虎即可。记得对于修改的block，要及时调用write_log来写日志。</p>
+<p><strong>Symbolic links</strong> 这个更简单了。软链接就是一个文本文件，存的链接的path，坏处是相对于硬链接来说，性能差点，并且有可能dangling；好处是可以跨物理文件系统进行链接。实现方法就是补充一个symlink系统调用，先create一个T_SYMLINK类型的inode，然后用writei向其中写入要链接的path即可。注意要用begin_op()和end_op()将操作都括起来。</p>
+<h2 id="lab-mmap">Lab: mmap</h2>
+<p>mmap即文件映射到内存，要实现基础版的是比较容易的。总体的思路是采用lazy allocation，和COW fork很类似。核心数据结构是VMA(Virtual Memory Area)，如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> VMA{
+</span></span><span style="display:flex;"><span>  uint64 start;
+</span></span><span style="display:flex;"><span>  uint64 end;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> prot;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> readable;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> writable;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> private;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">struct</span> file<span style="color:#f92672">*</span> f;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> offset;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> valid;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>每个mmap syscall都会生成一段VMA，插入到当前的struct proc中。在发生page fault时（包括load page fault 和 store page fault）时，trap handler首先会查找所有VMA中有没有包含对应的地址，如果有，则检查一下合法性（readable和writable），如果能通过合法性检查，那就去读文件、插入页表项等，完成文件映射的工作。</p>
+<p>munmap的工作就是更新对应的VMA，如果有些page没有被引用了，那就检查一下D位（D位是硬件帮我们维护的），如果是dirty的并且映射方式是Share，那此时就要多一个写回文件的步骤。</p>
+<p>完成了以上部分后，就能通过mmaptest了，forktest要求我们处理有父子进程的情况，测例很宽松，只要求我们：（1）mmap再fork后，子进程需要能看到之前mmap的内容；（2）进程退出时，需要我们能清理掉VMA（如果要写回，则写回）。</p>
+<p>这两点分别通过fork时复制VMA数组，以及freeproc时调用munmap中相同的流程，就可以解决。</p>
+<p>optional challenge很有意思，以下几点：</p>
+<p>（1）fork时，子进程和父进程共享之前的mmap page，这需要对这些page维护引用计数，来确定何时释放（和COW page一样）。</p>
+<p>（2）text段也可以通过VMA做lazy allocation，因为它本质上就是一段只读的文件映射；</p>
+<p>（3）复用buffer pool中的page，直接将mmap映射的物理地址设置为buffer pool中page的地址，这是mmap最核心的优势，能够减少一次内核态到用户态的内存拷贝。</p>
+</div><div class="post-footer" id="post-footer">
+    <div class="post-info">
+        <div class="post-info-line">
+            <div class="post-info-mod">
+                <span>Updated on 2024-02-15</span>
+            </div></div>
+        <div class="post-info-line">
+            <div class="post-info-md"></div>
+            <div class="post-info-share">
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/xv6-lab/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-info-more">
+        <section class="post-tags"></section>
+        <section>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+        </section>
+    </div>
+
+    <div class="post-nav"><a href="/posts/multi-core-survey/" class="prev" rel="prev" title="多核环境下in-memory database的挑战"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>多核环境下in-memory database的挑战</a></div>
+</div>
+</article></div>
+            </main><footer class="footer">
+        <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.120.4">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+        </div>
+    </footer></div>
+
+        <div id="fixed-buttons"><a href="#" id="back-to-top" class="fixed-button" title="Back to Top">
+                <i class="fas fa-arrow-up fa-fw" aria-hidden="true"></i>
+            </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
+                <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
+            </a>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+</html>
