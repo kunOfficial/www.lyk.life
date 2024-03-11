@@ -3,9 +3,27 @@
         <title>lyk の blog</title>
         <link>http://lyk.github.io/</link>
         <description>This is my cool site</description>
-        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Thu, 15 Feb 2024 16:31:50 &#43;0800</lastBuildDate>
+        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Mon, 11 Mar 2024 19:56:02 &#43;0800</lastBuildDate>
             <atom:link href="http://lyk.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
+    <title>MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记</title>
+    <link>http://lyk.github.io/posts/shardkv/</link>
+    <pubDate>Mon, 11 Mar 2024 19:56:02 &#43;0800</pubDate>
+    <author>lyk</author>
+    <guid>http://lyk.github.io/posts/shardkv/</guid>
+    <description><![CDATA[花了三周时间把拖了很久的Lab 4给做了，相比于前面3个lab，难度明显提高了很多。难点在于官方没有提供任何参考资料，但是给了很多hint。我认为这就是这个lab设计得最好的一点，不直接告诉你如何去解决这个问题，但是会给出一些可能有价值的hint，描绘出一个模糊的轮廓，启发学生的思考。
+不得不说，这是个很难得的锻炼自己系统设计能力的机会，如果去网上搜解决方案那就太浪费了。所以我还是和往常一样，坚持独立思考。采用的方法论还是那一套：问自己问题，然后自己回。不论问题大小，都记录下来，当问题大概都能解决了，整个思路就慢慢浮出水面了，觉得差不多了就可以开始动手了，边动手边和自己Q&amp;A。从结果来看，这个方法论是适合我的。
+接下来简单记录一下这个思考、实现、debug的过程，其中涉及到一些早期的废案（有标识），但我还是记下来了。
+Part A: The Shard Master 和lab3的key/value service基本一致，要改的地方就是server应用raft层传上来的cmd时的处理逻辑。一共要实现Join、Leave、Move、Query共四种功能，shard master 的作用就是将总数固定的shard平均分配到各个server group中。注意，join/leave都是可以一次上线/下线多个server group的。
+我的实现算法很朴素，Join时每次把shard数最多的group分一个shard分给shard数最少的group，直到shard数的极差&lt;=1时，迭代结束。Leave的逻辑也是类似。实现上要注意，golang的map是reference，所以拷贝config时，其中的的Group字段需要手动深拷贝。
+2024.3.9 发现shardmaster有问题，同一个Num，能Get出Num相同而Shard不同的Config值，跑TestUnreliable2时偶尔能复现；后来发现这是因为go的map是hash map，for loop遍历的时候go会故意打乱顺序，导致leader和follower运行同一个join或者leave指令，结果可能会不一样（破坏了确定性状态机状态唯一的性质），导致之后Get的结果可能不同。关于go map for loop的随机性详见stack overflow的这个问题。在查找解决方案时，我还知道了ordered map和sorted map原来不是一种东西，ordered map只要求有序就行，不要求按大小顺序，一般是按键的插入顺序；而sorted map就是按key大小排序的map，比如C++里的map。golang里这两种map都是由第三方库提供的。我最终的解决方法还是采用的标准库的map，按官方推荐的方法，将它的key（gid）拿出来，先sort一下，然后按照这个sort的序去遍历，这样在不同实例上的遍历顺序就是确定的了（按gid大小顺序）。
+Part B: Sharded Key/Value Server config 配置更新的设计 为每个shardkv实例维护一个newest_config。
+Q: follower需要去shardmaster拉取最新配置吗？
+A:两种方法，一种是follower自己去shardmaster拉取最新配置，第二种是leader发现config发生变化后通过raft log告知follower，应该都是可行的。我选的是前者。
+shard transfer过程的设计 由于我的目标是实现全异步的configure update的过程，所以一个group不会等自己要传输的shard都集齐了，再一起transfer出去。这要求我们将newest_config的更新逻辑和shard transfer的逻辑分离开来。
+func (kv *ShardKV) updateConfig() { for { if atomic.LoadInt32(&amp;kv.dead) == 1 { return } kv.mu.Lock() if !kv.inited { // first-time started (...) } else { kv.]]></description>
+</item>
+<item>
     <title>MIT 6.1810 fall2023 笔记</title>
     <link>http://lyk.github.io/posts/xv6-lab/</link>
     <pubDate>Thu, 15 Feb 2024 16:31:50 &#43;0800</pubDate>

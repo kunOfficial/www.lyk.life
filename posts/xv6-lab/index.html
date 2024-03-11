@@ -47,7 +47,7 @@ satp: 页表首地址
 <meta name="application-name" content="My cool site">
 <meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/xv6-lab/" /><link rel="prev" href="http://lyk.github.io/posts/multi-core-survey/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/xv6-lab/" /><link rel="prev" href="http://lyk.github.io/posts/multi-core-survey/" /><link rel="next" href="http://lyk.github.io/posts/shardkv/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
     {
@@ -58,7 +58,7 @@ satp: 页表首地址
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "http:\/\/lyk.github.io\/posts\/xv6-lab\/"
-        },"genre": "posts","wordcount":  865 ,
+        },"genre": "posts","wordcount":  867 ,
         "url": "http:\/\/lyk.github.io\/posts\/xv6-lab\/","datePublished": "2024-02-15T16:31:50+08:00","dateModified": "2024-02-15T16:31:50+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
@@ -72,7 +72,7 @@ satp: 页表首地址
         <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
     <div class="header-wrapper">
         <div class="header-title">
-            <a href="/" title="lyk の blog">lyk的学习笔记</a>
+            <a href="/" title="lyk の blog">Think Twice</a>
         </div>
         <div class="menu">
             <div class="menu-inner"><a class="menu-item" href="/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
@@ -84,7 +84,7 @@ satp: 页表首地址
     <div class="header-container">
         <div class="header-wrapper">
             <div class="header-title">
-                <a href="/" title="lyk の blog">lyk的学习笔记</a>
+                <a href="/" title="lyk の blog">Think Twice</a>
             </div>
             <div class="menu-toggle" id="menu-toggle-mobile">
                 <span></span><span></span><span></span>
@@ -100,7 +100,7 @@ satp: 页表首地址
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.1810 fall2023 笔记</h1><div class="post-meta">
             <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
-            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2024-02-15">2024-02-15</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;865 words&nbsp;
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2024-02-15">2024-02-15</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;867 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;5 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
                 <div class="details-summary toc-title">
@@ -407,6 +407,7 @@ satp: 页表首地址
 <p>buffer cache层就是做一个buffer pool，没什么好说的。向上面提供的接口主要是bget、bread、bwrite。</p>
 <p>disk层是磁盘驱动程序，提供virtio_disk_rw方法，也是通过磁盘的控制字来对磁盘进行控制。</p>
 <p>有点值得注意的——并发控制。在xv6的文件系统中，没有逻辑上的锁，全都是物理上的互斥sleep lock，不支持读写锁。主要的上锁对象是inode和mbuf。前者是锁一个文件，由ilock、iunlock来控制，这意味着只能有一个process同时访问一个文件，访问包括读和写。后者是锁一个buffer——其实我个人认为这个buffer只有在其中的内容是bitmap block、inode block时才需要，data block是不需要锁来保护的，这是前面说了ilock保证了文件只能串行访问，而一个data block只有可能属于一个文件，所以data block的串行访问是自然保证的。</p>
+<p>文件系统中出现了大量的锁，inode、buf等往往是以指针的形式在函数之间传递， 从函数签名上也看不出一个函数返回的对象有没有上锁；另外就是大量的引用计数，需要手动来维护。这两点导致文件系统这部分变得更加繁杂，所以我觉得C语言虽然灵活，但还是不如rust等现代语言对编程人员友好。</p>
 <p>最后，xv6里有三类资源是作为池化资源来访问的，struct file, struct inode, struct buf，xv6的实现就是一个大数组——也没有LRU之类的evict机制（struct buf那个LRU没有任何实际意义，我认为纯属设计失误），数组分配完了就只能panic了。xv6 book中file system章节后提出了几个问题，引导我们改进：</p>
 <blockquote>
 <ol>
@@ -438,7 +439,7 @@ therefore worth handling?</li>
 <p>optional challenge很有意思，以下几点：</p>
 <p>（1）fork时，子进程和父进程共享之前的mmap page，这需要对这些page维护引用计数，来确定何时释放（和COW page一样）。</p>
 <p>（2）text段也可以通过VMA做lazy allocation，因为它本质上就是一段只读的文件映射；</p>
-<p>（3）复用buffer pool中的page，直接将mmap映射的物理地址设置为buffer pool中page的地址，这是mmap最核心的优势，能够减少一次内核态到用户态的内存拷贝。</p>
+<p>（3）复用buffer pool中的page，直接将mmap映射的物理地址设置为buffer pool中page的地址，这是mmap最核心的优势，能够减少一次内核态到用户态的内存拷贝。修改时需要把文件系统的缓冲区大小改为页大小，即4096。</p>
 </div><div class="post-footer" id="post-footer">
     <div class="post-info">
         <div class="post-info-line">
@@ -460,7 +461,8 @@ therefore worth handling?</li>
         </section>
     </div>
 
-    <div class="post-nav"><a href="/posts/multi-core-survey/" class="prev" rel="prev" title="多核环境下in-memory database的挑战"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>多核环境下in-memory database的挑战</a></div>
+    <div class="post-nav"><a href="/posts/multi-core-survey/" class="prev" rel="prev" title="多核环境下in-memory database的挑战"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>多核环境下in-memory database的挑战</a>
+            <a href="/posts/shardkv/" class="next" rel="next" title="MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记">MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记<i class="fas fa-angle-right fa-fw" aria-hidden="true"></i></a></div>
 </div>
 </article></div>
             </main><footer class="footer">

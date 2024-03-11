@@ -72,7 +72,7 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "http:\/\/lyk.github.io\/posts\/kvserver\/"
-        },"genre": "posts","wordcount":  210 ,
+        },"genre": "posts","wordcount":  279 ,
         "url": "http:\/\/lyk.github.io\/posts\/kvserver\/","datePublished": "2023-11-24T23:47:28+08:00","dateModified": "2023-11-24T23:47:28+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
@@ -86,7 +86,7 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
         <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
     <div class="header-wrapper">
         <div class="header-title">
-            <a href="/" title="lyk の blog">lyk的学习笔记</a>
+            <a href="/" title="lyk の blog">Think Twice</a>
         </div>
         <div class="menu">
             <div class="menu-inner"><a class="menu-item" href="/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
@@ -98,7 +98,7 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
     <div class="header-container">
         <div class="header-wrapper">
             <div class="header-title">
-                <a href="/" title="lyk の blog">lyk的学习笔记</a>
+                <a href="/" title="lyk の blog">Think Twice</a>
             </div>
             <div class="menu-toggle" id="menu-toggle-mobile">
                 <span></span><span></span><span></span>
@@ -114,8 +114,8 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记</h1><div class="post-meta">
             <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
-            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-11-24">2023-11-24</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;210 words&nbsp;
-                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;One minute&nbsp;</div>
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-11-24">2023-11-24</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;279 words&nbsp;
+                <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;2 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
                 <div class="details-summary toc-title">
                     <span>Contents</span>
@@ -237,7 +237,14 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
 <p>现在本质上处理log的逻辑还是单线程的，会导致一个client拖累后面的client的处理，其实可以可以考虑改造成分发的形式</p>
 <ul>
 <li>
-<p>Read Lease / follower read</p>
+<p>Read Index（Read Lease） / Follower Read</p>
+<p>这篇<a href="https://tanxinyu.work/consistency-and-consensus/#etcd-%E7%9A%84-Raft" target="_blank" rel="noopener noreffer ">博客</a>讲了etcd对于读的优化。为了达到线性一致性，那在处理get请求时leader就不能返回旧的数据回去，那能不能直接返回结果呢？答案是不能，因为在发生网络分区时，一个leader有可能只是minority的leader，它的状态机可能是落后与majority的leader的，如果直接返回结果，那就可能返回旧的结果，违反线性一致性。这里我采取的方法是将Read请求也作为一个log放在log队列中，等到commit到这个log时，再给client回复，我这里为了能。更好的做法其实是采用Read Index的方法，即leader收到get请求时，记录一下当前的commit index作为read index，然后再向所有成员发送一次心跳，如果收到大部分的成员的回复，那说明自己仍然是leader，这时就可以等待commit到read index（commit的过程是异步的）时，再回复结果。从线性顺序上，可以认为这个get请求发生在read index上。read index相比于我这个naive的做法优势很明显，一方面将等待时间从last index commit(我这么称呼的，因为read log是放在log队列末尾的) 缩短到了commit index commit；另一方面，大大减少了log的大小，从而减少compaction（snapshot)发生的频率。</p>
+<p>Read Lease是在Read index上的优化，为了减小leader的读延迟。即leader处理get请求时，不需要每次都去询问其他所有成员，而是在租约内直接给client答复。要点是租约严格小于election timeout的时间，这样就能保证租约内不会出现新的leader。租约通过每次AP rpc请求来进行续约。</p>
+<p>而Follower Read也是在Read index上的优化，为了扩展读性能。以上方法本质上还是由Leader来处理读请求，所以follower再多，也只是看戏，整体读性能也不会提升。而Follower Read参考PingCAP CTO的<a href="https://zhuanlan.zhihu.com/p/78164196" target="_blank" rel="noopener noreffer ">博客</a>：</p>
+<blockquote>
+<p>如何保证 Follower 上读到最新的数据呢？最土的办法就是将请求转发给 Leader，然后 Leader 返回最新的 Committed 的数据就好了嘛，Follower 当做 Proxy 来用。这个思路没有任何问题，而且实现起来也很简单还安全。但是，很明显这个地方可以优化成：<strong>Leader 只要告诉 Follower 当前最新的 Commit Index 就够了，因为无论如何，即使这个 Follower 本地没有这条日志，最终这条日志迟早都会在本地 Apply。</strong></p>
+<p>TiDB 目前的 Follower Read 正是如此实现的，当客户端对一个 Follower 发起读请求的时候，这个 Follower 会请求此时 Leader 的 Commit Index，拿到 Leader 的最新的 Commit Index 后，等本地 Apply 到 Leader 最新的 Commit Index 后，然后将这条数据返回给客户端，非常简洁。</p>
+</blockquote>
 </li>
 <li>
 <p>raft成员变更。该<a href="https://zhuanlan.zhihu.com/p/359206808" target="_blank" rel="noopener noreffer ">博客</a>讲解了raft中的成员变更。raft成员变更的方法可以分为两阶段变更和单步变更。论文中的Section 6, Cluster Membership Changes，增加了一个JoinPhase阶段，该阶段内的RV以及Commit Log时，都需要分别获得$C_{old}$和$C_{new}$(C用来表示configuration，即raft集群含有的node是哪些）中的多数派的同意，这样就避免了两个多数派同时出现时，可以分别单独进行决策的情况。</p>
