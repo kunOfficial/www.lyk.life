@@ -12,7 +12,7 @@ Master和Worker的定义 命名方式随意了点：）
 另外，Master会维持一个全局的global_phase变量，用来指示现在所处的阶段，lifetime是 MapPhase -&gt; ReducePhase -&gt; CompletedPhase。并通过维护done_cnt计数器来知晓现在完成的Map/Reduce Task的数量，在全部完成时，进行Phase的转换。
 type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( MapPhase Phase = iota ReducePhase CompletedPhase ) // TaskType const ( Map TaskType = iota Reduce Wait Exit ) // TaskStatus const ( Start TaskStatus = iota Processing Done ) type MapTask struct { // machine_id int NReduce int TaskId int InputFile string Status TaskStatus // iter_files []string Time time." />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://lyukun.github.io/posts/map_reduce/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="og:url" content="https://lyukun.github.io/blog/posts/map_reduce/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2023-08-08T11:55:30+08:00" />
 <meta property="article:modified_time" content="2023-08-08T11:55:30+08:00" /><meta property="og:site_name" content="My cool site" />
 
@@ -29,7 +29,7 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
 <meta name="application-name" content="My cool site">
 <meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/posts/map_reduce/" /><link rel="prev" href="https://lyukun.github.io/posts/first_post/" /><link rel="next" href="https://lyukun.github.io/posts/cmu15445-2022fall/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/blog/posts/map_reduce/" /><link rel="prev" href="https://lyukun.github.io/blog/posts/first_post/" /><link rel="next" href="https://lyukun.github.io/blog/posts/cmu15445-2022fall/" /><link rel="stylesheet" href="/blog/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
     {
@@ -39,9 +39,9 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
         "inLanguage": "en-us",
         "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": "https:\/\/lyukun.github.io\/posts\/map_reduce\/"
+            "@id": "https:\/\/lyukun.github.io\/blog\/posts\/map_reduce\/"
         },"genre": "posts","wordcount":  576 ,
-        "url": "https:\/\/lyukun.github.io\/posts\/map_reduce\/","datePublished": "2023-08-08T11:55:30+08:00","dateModified": "2023-08-08T11:55:30+08:00","publisher": {
+        "url": "https:\/\/lyukun.github.io\/blog\/posts\/map_reduce\/","datePublished": "2023-08-08T11:55:30+08:00","dateModified": "2023-08-08T11:55:30+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
                 "@type": "Person",
@@ -54,10 +54,10 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
         <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
     <div class="header-wrapper">
         <div class="header-title">
-            <a href="/" title="lyk の blog">Think Twice</a>
+            <a href="/blog/" title="lyk の blog">Think Twice</a>
         </div>
         <div class="menu">
-            <div class="menu-inner"><a class="menu-item" href="/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+            <div class="menu-inner"><a class="menu-item" href="/blog/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
                     <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
                 </a></div>
         </div>
@@ -66,13 +66,13 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
     <div class="header-container">
         <div class="header-wrapper">
             <div class="header-title">
-                <a href="/" title="lyk の blog">Think Twice</a>
+                <a href="/blog/" title="lyk の blog">Think Twice</a>
             </div>
             <div class="menu-toggle" id="menu-toggle-mobile">
                 <span></span><span></span><span></span>
             </div>
         </div>
-        <div class="menu" id="menu-mobile"><a class="menu-item" href="/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+        <div class="menu" id="menu-mobile"><a class="menu-item" href="/blog/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
                 <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
             </a></div>
     </div>
@@ -81,7 +81,7 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
             <h2 class="toc-title">Contents</h2>
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.824 2020 (1) lab1 MapReduce实现笔记</h1><div class="post-meta">
-            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
+            <div class="post-meta-line"><span class="post-author"><a href="/blog/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
             <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-08">2023-08-08</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;576 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;3 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
@@ -327,7 +327,7 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
         <div class="post-info-line">
             <div class="post-info-md"></div>
             <div class="post-info-share">
-                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/posts/map_reduce/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/blog/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/blog/posts/map_reduce/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/blog/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/blog/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/blog/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
             </div>
         </div>
     </div>
@@ -335,17 +335,17 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
     <div class="post-info-more">
         <section class="post-tags"></section>
         <section>
-            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/blog/">Home</a></span>
         </section>
     </div>
 
-    <div class="post-nav"><a href="/posts/first_post/" class="prev" rel="prev" title="Hello world"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>Hello world</a>
-            <a href="/posts/cmu15445-2022fall/" class="next" rel="next" title="CMU15-445 (2022fall) project实现笔记">CMU15-445 (2022fall) project实现笔记<i class="fas fa-angle-right fa-fw" aria-hidden="true"></i></a></div>
+    <div class="post-nav"><a href="/blog/posts/first_post/" class="prev" rel="prev" title="Hello world"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>Hello world</a>
+            <a href="/blog/posts/cmu15445-2022fall/" class="next" rel="next" title="CMU15-445 (2022fall) project实现笔记">CMU15-445 (2022fall) project实现笔记<i class="fas fa-angle-right fa-fw" aria-hidden="true"></i></a></div>
 </div>
 </article></div>
             </main><footer class="footer">
         <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.120.4">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
-                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/blog/" target="_blank"></a></span></div>
         </div>
     </footer></div>
 
@@ -354,5 +354,5 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
             </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
                 <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
             </a>
-        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/blog/js/theme.min.js"></script></body>
 </html>

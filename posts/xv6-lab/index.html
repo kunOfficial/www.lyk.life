@@ -21,7 +21,7 @@ epc: exeption program counter,发生异常时，在进入trap前，硬件自动�
 satp: 页表首地址
 从scause可以看出这是个page fault，sepc是发生缺页中断的指令地址，stval中保存的是导致page fault的非法地址。通过sepc去kernel.asm文件中找就能发发现page fault的位置。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://lyukun.github.io/posts/xv6-lab/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="og:url" content="https://lyukun.github.io/blog/posts/xv6-lab/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2024-02-15T16:31:50+08:00" />
 <meta property="article:modified_time" content="2024-02-15T16:31:50+08:00" /><meta property="og:site_name" content="My cool site" />
 
@@ -47,7 +47,7 @@ satp: 页表首地址
 <meta name="application-name" content="My cool site">
 <meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/posts/xv6-lab/" /><link rel="prev" href="https://lyukun.github.io/posts/multi-core-survey/" /><link rel="next" href="https://lyukun.github.io/posts/shardkv/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/blog/posts/xv6-lab/" /><link rel="prev" href="https://lyukun.github.io/blog/posts/multi-core-survey/" /><link rel="next" href="https://lyukun.github.io/blog/posts/shardkv/" /><link rel="stylesheet" href="/blog/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
     {
@@ -57,9 +57,9 @@ satp: 页表首地址
         "inLanguage": "en-us",
         "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": "https:\/\/lyukun.github.io\/posts\/xv6-lab\/"
+            "@id": "https:\/\/lyukun.github.io\/blog\/posts\/xv6-lab\/"
         },"genre": "posts","wordcount":  867 ,
-        "url": "https:\/\/lyukun.github.io\/posts\/xv6-lab\/","datePublished": "2024-02-15T16:31:50+08:00","dateModified": "2024-02-15T16:31:50+08:00","publisher": {
+        "url": "https:\/\/lyukun.github.io\/blog\/posts\/xv6-lab\/","datePublished": "2024-02-15T16:31:50+08:00","dateModified": "2024-02-15T16:31:50+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
                 "@type": "Person",
@@ -72,10 +72,10 @@ satp: 页表首地址
         <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
     <div class="header-wrapper">
         <div class="header-title">
-            <a href="/" title="lyk の blog">Think Twice</a>
+            <a href="/blog/" title="lyk の blog">Think Twice</a>
         </div>
         <div class="menu">
-            <div class="menu-inner"><a class="menu-item" href="/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+            <div class="menu-inner"><a class="menu-item" href="/blog/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
                     <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
                 </a></div>
         </div>
@@ -84,13 +84,13 @@ satp: 页表首地址
     <div class="header-container">
         <div class="header-wrapper">
             <div class="header-title">
-                <a href="/" title="lyk の blog">Think Twice</a>
+                <a href="/blog/" title="lyk の blog">Think Twice</a>
             </div>
             <div class="menu-toggle" id="menu-toggle-mobile">
                 <span></span><span></span><span></span>
             </div>
         </div>
-        <div class="menu" id="menu-mobile"><a class="menu-item" href="/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+        <div class="menu" id="menu-mobile"><a class="menu-item" href="/blog/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
                 <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
             </a></div>
     </div>
@@ -99,7 +99,7 @@ satp: 页表首地址
             <h2 class="toc-title">Contents</h2>
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.1810 fall2023 笔记</h1><div class="post-meta">
-            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
+            <div class="post-meta-line"><span class="post-author"><a href="/blog/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
             <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2024-02-15">2024-02-15</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;867 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;5 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
@@ -140,7 +140,7 @@ satp: 页表首地址
 <p>satp: 页表首地址</p>
 <p><img
         class="lazyload"
-        src="/svg/loading.min.svg"
+        src="/blog/svg/loading.min.svg"
         data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240116152108905.png"
         data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240116152108905.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240116152108905.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240116152108905.png 2x"
         data-sizes="auto"
@@ -207,7 +207,7 @@ satp: 页表首地址
 <p><strong>backtrace</strong> 只要清楚risc-v中栈的结构思路就很清晰了，如下图：</p>
 <p><img
         class="lazyload"
-        src="/svg/loading.min.svg"
+        src="/blog/svg/loading.min.svg"
         data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240125095227075.png"
         data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240125095227075.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240125095227075.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240125095227075.png 2x"
         data-sizes="auto"
@@ -239,7 +239,7 @@ satp: 页表首地址
 <p>fork中要改的就是uvmcopy函数，把父进程和子进程的text、data、stack、heap都标记为COW page，并进行bookeeping来更新该物理page的引用计数（什么是bookeeping下面会讲）。那么怎么标记一个COW page呢？看页表项的结构：</p>
 <p><img
         class="lazyload"
-        src="/svg/loading.min.svg"
+        src="/blog/svg/loading.min.svg"
         data-src="https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png"
         data-srcset="https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png, https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png 1.5x, https://rcore-os.cn/rCore-Tutorial-Book-v3/_images/sv39-pte.png 2x"
         data-sizes="auto"
@@ -378,7 +378,7 @@ satp: 页表首地址
 <p>xv6的文件系统从上到下分为这些模块：</p>
 <p><img
         class="lazyload"
-        src="/svg/loading.min.svg"
+        src="/blog/svg/loading.min.svg"
         data-src="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240211112343972.png"
         data-srcset="C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240211112343972.png, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240211112343972.png 1.5x, C:%5cUsers%5clyk%5cAppData%5cRoaming%5cTypora%5ctypora-user-images%5cimage-20240211112343972.png 2x"
         data-sizes="auto"
@@ -449,7 +449,7 @@ therefore worth handling?</li>
         <div class="post-info-line">
             <div class="post-info-md"></div>
             <div class="post-info-share">
-                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/posts/xv6-lab/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/blog/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/blog/posts/xv6-lab/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/blog/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/blog/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/blog/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
             </div>
         </div>
     </div>
@@ -457,17 +457,17 @@ therefore worth handling?</li>
     <div class="post-info-more">
         <section class="post-tags"></section>
         <section>
-            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/blog/">Home</a></span>
         </section>
     </div>
 
-    <div class="post-nav"><a href="/posts/multi-core-survey/" class="prev" rel="prev" title="多核环境下in-memory database的挑战"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>多核环境下in-memory database的挑战</a>
-            <a href="/posts/shardkv/" class="next" rel="next" title="MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记">MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记<i class="fas fa-angle-right fa-fw" aria-hidden="true"></i></a></div>
+    <div class="post-nav"><a href="/blog/posts/multi-core-survey/" class="prev" rel="prev" title="多核环境下in-memory database的挑战"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>多核环境下in-memory database的挑战</a>
+            <a href="/blog/posts/shardkv/" class="next" rel="next" title="MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记">MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记<i class="fas fa-angle-right fa-fw" aria-hidden="true"></i></a></div>
 </div>
 </article></div>
             </main><footer class="footer">
         <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.120.4">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
-                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/blog/" target="_blank"></a></span></div>
         </div>
     </footer></div>
 
@@ -476,5 +476,5 @@ therefore worth handling?</li>
             </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
                 <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
             </a>
-        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/blog/js/theme.min.js"></script></body>
 </html>

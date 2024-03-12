@@ -17,7 +17,7 @@ sub-query 采用物化的方法，优先进行子查询，然后将子查询的�
 过测例时发现update的set value字段也可以是一个subquery, 我采用的还是加child的方式，不过这次是加到update_operator后面，逻辑也是一样的，open时发现有两个children则优先进行子查询。本质上是将value的构造时间延后了。
 multi-index 修改存储在index文件中第一页的元数据 实现最左匹配：在生成物理执行计划时判断table get能不能走索引，用最左匹配原则。如果有，则需要构造出left key和right key，剩下的无法走索引的字段左右分别设置为最小值和最大值即可。注意，由于这里我的NULL值是比MIN（MIN设计的是NULL&#43;1)还小的值，所以左边界是NULL。 另：logical_operator重写阶段实现了谓词下推（predicate pushdown)，所以在table_get_logical operator构建物理执行计划时，如果有谓词，再尝试使用索引即可，如果有索引，构建index_scan的物理执行计划。 **text ** 弄个新的TextPage, header存char_num, char_num表示这个page中存的实际数据有多少， next_page指示下一个TextPage的page_num。读取时，当char_num == FULL_CHAR_NUM &amp;&amp; next_page !" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://lyukun.github.io/posts/miniob/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="og:url" content="https://lyukun.github.io/blog/posts/miniob/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2023-11-08T11:55:30+08:00" />
 <meta property="article:modified_time" content="2023-11-08T11:55:30+08:00" /><meta property="og:site_name" content="My cool site" />
 
@@ -39,7 +39,7 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
 <meta name="application-name" content="My cool site">
 <meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/posts/miniob/" /><link rel="prev" href="https://lyukun.github.io/posts/raft/" /><link rel="next" href="https://lyukun.github.io/posts/kvserver/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/blog/posts/miniob/" /><link rel="prev" href="https://lyukun.github.io/blog/posts/raft/" /><link rel="next" href="https://lyukun.github.io/blog/posts/kvserver/" /><link rel="stylesheet" href="/blog/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
     {
@@ -49,9 +49,9 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
         "inLanguage": "en-us",
         "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": "https:\/\/lyukun.github.io\/posts\/miniob\/"
+            "@id": "https:\/\/lyukun.github.io\/blog\/posts\/miniob\/"
         },"genre": "posts","wordcount":  178 ,
-        "url": "https:\/\/lyukun.github.io\/posts\/miniob\/","datePublished": "2023-11-08T11:55:30+08:00","dateModified": "2023-11-08T11:55:30+08:00","publisher": {
+        "url": "https:\/\/lyukun.github.io\/blog\/posts\/miniob\/","datePublished": "2023-11-08T11:55:30+08:00","dateModified": "2023-11-08T11:55:30+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
                 "@type": "Person",
@@ -64,10 +64,10 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
         <div id="mask"></div><div class="wrapper"><header class="desktop" id="header-desktop">
     <div class="header-wrapper">
         <div class="header-title">
-            <a href="/" title="lyk の blog">Think Twice</a>
+            <a href="/blog/" title="lyk の blog">Think Twice</a>
         </div>
         <div class="menu">
-            <div class="menu-inner"><a class="menu-item" href="/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+            <div class="menu-inner"><a class="menu-item" href="/blog/posts/"> Posts </a><span class="menu-item delimiter"></span><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
                     <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
                 </a></div>
         </div>
@@ -76,13 +76,13 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
     <div class="header-container">
         <div class="header-wrapper">
             <div class="header-title">
-                <a href="/" title="lyk の blog">Think Twice</a>
+                <a href="/blog/" title="lyk の blog">Think Twice</a>
             </div>
             <div class="menu-toggle" id="menu-toggle-mobile">
                 <span></span><span></span><span></span>
             </div>
         </div>
-        <div class="menu" id="menu-mobile"><a class="menu-item" href="/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
+        <div class="menu" id="menu-mobile"><a class="menu-item" href="/blog/posts/" title="">Posts</a><a href="javascript:void(0);" class="menu-item theme-switch" title="Switch Theme">
                 <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
             </a></div>
     </div>
@@ -91,7 +91,7 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
             <h2 class="toc-title">Contents</h2>
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">miniob 2023 初赛记录</h1><div class="post-meta">
-            <div class="post-meta-line"><span class="post-author"><a href="/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
+            <div class="post-meta-line"><span class="post-author"><a href="/blog/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
             <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-11-08">2023-11-08</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;178 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;One minute&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
@@ -149,7 +149,7 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
 </ul>
 <p><img
         class="lazyload"
-        src="/svg/loading.min.svg"
+        src="/blog/svg/loading.min.svg"
         data-src="https://ask.qcloudimg.com/http-save/yehe-5669671/r2mfmcj6kz.png"
         data-srcset="https://ask.qcloudimg.com/http-save/yehe-5669671/r2mfmcj6kz.png, https://ask.qcloudimg.com/http-save/yehe-5669671/r2mfmcj6kz.png 1.5x, https://ask.qcloudimg.com/http-save/yehe-5669671/r2mfmcj6kz.png 2x"
         data-sizes="auto"
@@ -274,7 +274,7 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
         <div class="post-info-line">
             <div class="post-info-md"></div>
             <div class="post-info-share">
-                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/posts/miniob/" data-title="miniob 2023 初赛记录"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/posts/miniob/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/posts/miniob/" data-title="miniob 2023 初赛记录"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/posts/miniob/" data-title="miniob 2023 初赛记录"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/posts/miniob/" data-title="miniob 2023 初赛记录"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/blog/posts/miniob/" data-title="miniob 2023 初赛记录"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/blog/posts/miniob/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/blog/posts/miniob/" data-title="miniob 2023 初赛记录"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/blog/posts/miniob/" data-title="miniob 2023 初赛记录"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/blog/posts/miniob/" data-title="miniob 2023 初赛记录"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
             </div>
         </div>
     </div>
@@ -282,17 +282,17 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
     <div class="post-info-more">
         <section class="post-tags"></section>
         <section>
-            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/">Home</a></span>
+            <span><a href="javascript:void(0);" onclick="window.history.back();">Back</a></span>&nbsp;|&nbsp;<span><a href="/blog/">Home</a></span>
         </section>
     </div>
 
-    <div class="post-nav"><a href="/posts/raft/" class="prev" rel="prev" title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>MIT 6.824 2020 (2) lab2 Raft 实现笔记</a>
-            <a href="/posts/kvserver/" class="next" rel="next" title="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记">MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记<i class="fas fa-angle-right fa-fw" aria-hidden="true"></i></a></div>
+    <div class="post-nav"><a href="/blog/posts/raft/" class="prev" rel="prev" title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i class="fas fa-angle-left fa-fw" aria-hidden="true"></i>MIT 6.824 2020 (2) lab2 Raft 实现笔记</a>
+            <a href="/blog/posts/kvserver/" class="next" rel="next" title="MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记">MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记<i class="fas fa-angle-right fa-fw" aria-hidden="true"></i></a></div>
 </div>
 </article></div>
             </main><footer class="footer">
         <div class="footer-container"><div class="footer-line">Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener noreffer" title="Hugo 0.120.4">Hugo</a> | Theme - <a href="https://github.com/dillonzq/LoveIt" target="_blank" rel="noopener noreffer" title="LoveIt 0.2.11"><i class="far fa-kiss-wink-heart fa-fw" aria-hidden="true"></i> LoveIt</a>
-                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/" target="_blank"></a></span></div>
+                </div><div class="footer-line" itemscope itemtype="http://schema.org/CreativeWork"><i class="far fa-copyright fa-fw" aria-hidden="true"></i><span itemprop="copyrightYear">2022 - 2024</span><span class="author" itemprop="copyrightHolder">&nbsp;<a href="/blog/" target="_blank"></a></span></div>
         </div>
     </footer></div>
 
@@ -301,5 +301,5 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
             </a><a href="#" id="view-comments" class="fixed-button" title="View Comments">
                 <i class="fas fa-comment fa-fw" aria-hidden="true"></i>
             </a>
-        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/js/theme.min.js"></script></body>
+        </div><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js"></script><script type="text/javascript">window.config={"code":{"copyTitle":"Copy to clipboard","maxShownLines":50},"comment":{}};</script><script type="text/javascript" src="/blog/js/theme.min.js"></script></body>
 </html>
