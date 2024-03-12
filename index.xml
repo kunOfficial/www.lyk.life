@@ -3,7 +3,6 @@
         <title>lyk の blog</title>
         <link>http://lyk.github.io/</link>
         <description>This is my cool site</description>
-<<<<<<< HEAD
         <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Mon, 11 Mar 2024 19:56:02 &#43;0800</lastBuildDate>
             <atom:link href="http://lyk.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
@@ -47,11 +46,6 @@ satp: 页表首地址
 从scause可以看出这是个page fault，sepc是发生缺页中断的指令地址，stval中保存的是导致page fault的非法地址。通过sepc去kernel.asm文件中找就能发发现page fault的位置。]]></description>
 </item>
 <item>
-=======
-        <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Wed, 10 Jan 2024 11:59:51 &#43;0800</lastBuildDate>
-            <atom:link href="http://lyk.github.io/index.xml" rel="self" type="application/rss+xml" />
-        <item>
->>>>>>> parent of 42e90bb ([add] xv6 2023fall labs)
     <title>多核环境下in-memory database的挑战</title>
     <link>http://lyk.github.io/posts/multi-core-survey/</link>
     <pubDate>Wed, 10 Jan 2024 11:59:51 &#43;0800</pubDate>
