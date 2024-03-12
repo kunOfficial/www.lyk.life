@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noodp" />
-        <title>MIT 6.1810 fall2023 笔记 - lyk の blog</title><meta name="Description" content="This is my cool site"><meta property="og:title" content="MIT 6.1810 fall2023 笔记" />
+        <title>MIT 6.1810 fall2023 笔记 - lyk の blog</title><meta name="Description" content="This is my cool blog"><meta property="og:title" content="MIT 6.1810 fall2023 笔记" />
 <meta property="og:description" content="MIT XV6 2023笔记 记录一下MIT 6.1810 2023 fall公开课（以前叫6.828）的lab，以及自己看xv6-book觉得有意思的点。一方面方便自己回顾，另外希望能帮上一些后来的朋友。
 Lab: Xv6 and Unix utilities sleep 没什么好说的
 pingpong 主要熟悉一下pipe系统调用，fd[2]第一个是rfd，第二个是wfd。思路就是创建两个pipe，父子进程通过管道进行同步，依次打印所需内容即可。
@@ -21,12 +21,12 @@ epc: exeption program counter,发生异常时，在进入trap前，硬件自动�
 satp: 页表首地址
 从scause可以看出这是个page fault，sepc是发生缺页中断的指令地址，stval中保存的是导致page fault的非法地址。通过sepc去kernel.asm文件中找就能发发现page fault的位置。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="http://lyk.github.io/posts/xv6-lab/" /><meta property="og:image" content="http://lyk.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="og:url" content="https://lyukun.github.io/posts/xv6-lab/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2024-02-15T16:31:50+08:00" />
 <meta property="article:modified_time" content="2024-02-15T16:31:50+08:00" /><meta property="og:site_name" content="My cool site" />
 
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:image" content="http://lyk.github.io/logo.png"/>
+<meta name="twitter:image" content="https://lyukun.github.io/logo.png"/>
 
 <meta name="twitter:title" content="MIT 6.1810 fall2023 笔记"/>
 <meta name="twitter:description" content="MIT XV6 2023笔记 记录一下MIT 6.1810 2023 fall公开课（以前叫6.828）的lab，以及自己看xv6-book觉得有意思的点。一方面方便自己回顾，另外希望能帮上一些后来的朋友。
@@ -47,7 +47,7 @@ satp: 页表首地址
 <meta name="application-name" content="My cool site">
 <meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/xv6-lab/" /><link rel="prev" href="http://lyk.github.io/posts/multi-core-survey/" /><link rel="next" href="http://lyk.github.io/posts/shardkv/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/posts/xv6-lab/" /><link rel="prev" href="https://lyukun.github.io/posts/multi-core-survey/" /><link rel="next" href="https://lyukun.github.io/posts/shardkv/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
     {
@@ -57,9 +57,9 @@ satp: 页表首地址
         "inLanguage": "en-us",
         "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": "http:\/\/lyk.github.io\/posts\/xv6-lab\/"
+            "@id": "https:\/\/lyukun.github.io\/posts\/xv6-lab\/"
         },"genre": "posts","wordcount":  867 ,
-        "url": "http:\/\/lyk.github.io\/posts\/xv6-lab\/","datePublished": "2024-02-15T16:31:50+08:00","dateModified": "2024-02-15T16:31:50+08:00","publisher": {
+        "url": "https:\/\/lyukun.github.io\/posts\/xv6-lab\/","datePublished": "2024-02-15T16:31:50+08:00","dateModified": "2024-02-15T16:31:50+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
                 "@type": "Person",
@@ -449,7 +449,7 @@ therefore worth handling?</li>
         <div class="post-info-line">
             <div class="post-info-md"></div>
             <div class="post-info-share">
-                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/xv6-lab/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/posts/xv6-lab/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/posts/xv6-lab/" data-title="MIT 6.1810 fall2023 笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
             </div>
         </div>
     </div>

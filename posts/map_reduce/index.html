@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noodp" />
-        <title>MIT 6.824 2020 (1) lab1 MapReduce实现笔记 - lyk の blog</title><meta name="Description" content="This is my cool site"><meta property="og:title" content="MIT 6.824 2020 (1) lab1 MapReduce实现笔记" />
+        <title>MIT 6.824 2020 (1) lab1 MapReduce实现笔记 - lyk の blog</title><meta name="Description" content="This is my cool blog"><meta property="og:title" content="MIT 6.824 2020 (1) lab1 MapReduce实现笔记" />
 <meta property="og:description" content="MIT 6.824 2020 (1) lab1 MapReduce实现笔记 花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。
 以下是我的一些笔记，这门课不允许在网上公开代码，但是为了便于描述，我还是将一部分核心代码贴了出来。
 Master和Worker的定义 命名方式随意了点：）
@@ -12,12 +12,12 @@ Master和Worker的定义 命名方式随意了点：）
 另外，Master会维持一个全局的global_phase变量，用来指示现在所处的阶段，lifetime是 MapPhase -&gt; ReducePhase -&gt; CompletedPhase。并通过维护done_cnt计数器来知晓现在完成的Map/Reduce Task的数量，在全部完成时，进行Phase的转换。
 type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( MapPhase Phase = iota ReducePhase CompletedPhase ) // TaskType const ( Map TaskType = iota Reduce Wait Exit ) // TaskStatus const ( Start TaskStatus = iota Processing Done ) type MapTask struct { // machine_id int NReduce int TaskId int InputFile string Status TaskStatus // iter_files []string Time time." />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="http://lyk.github.io/posts/map_reduce/" /><meta property="og:image" content="http://lyk.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="og:url" content="https://lyukun.github.io/posts/map_reduce/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2023-08-08T11:55:30+08:00" />
 <meta property="article:modified_time" content="2023-08-08T11:55:30+08:00" /><meta property="og:site_name" content="My cool site" />
 
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:image" content="http://lyk.github.io/logo.png"/>
+<meta name="twitter:image" content="https://lyukun.github.io/logo.png"/>
 
 <meta name="twitter:title" content="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"/>
 <meta name="twitter:description" content="MIT 6.824 2020 (1) lab1 MapReduce实现笔记 花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。
@@ -29,7 +29,7 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
 <meta name="application-name" content="My cool site">
 <meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/map_reduce/" /><link rel="prev" href="http://lyk.github.io/posts/first_post/" /><link rel="next" href="http://lyk.github.io/posts/cmu15445-2022fall/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/posts/map_reduce/" /><link rel="prev" href="https://lyukun.github.io/posts/first_post/" /><link rel="next" href="https://lyukun.github.io/posts/cmu15445-2022fall/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
     {
@@ -39,9 +39,9 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
         "inLanguage": "en-us",
         "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": "http:\/\/lyk.github.io\/posts\/map_reduce\/"
+            "@id": "https:\/\/lyukun.github.io\/posts\/map_reduce\/"
         },"genre": "posts","wordcount":  576 ,
-        "url": "http:\/\/lyk.github.io\/posts\/map_reduce\/","datePublished": "2023-08-08T11:55:30+08:00","dateModified": "2023-08-08T11:55:30+08:00","publisher": {
+        "url": "https:\/\/lyukun.github.io\/posts\/map_reduce\/","datePublished": "2023-08-08T11:55:30+08:00","dateModified": "2023-08-08T11:55:30+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
                 "@type": "Person",
@@ -327,7 +327,7 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
         <div class="post-info-line">
             <div class="post-info-md"></div>
             <div class="post-info-share">
-                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/map_reduce/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/posts/map_reduce/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/posts/map_reduce/" data-title="MIT 6.824 2020 (1) lab1 MapReduce实现笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
             </div>
         </div>
     </div>

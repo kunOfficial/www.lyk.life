@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noodp" />
-        <title>MIT 6.824 2020 (2) lab2 Raft 实现笔记 - lyk の blog</title><meta name="Description" content="This is my cool site"><meta property="og:title" content="MIT 6.824 2020 (2) lab2 Raft 实现笔记" />
+        <title>MIT 6.824 2020 (2) lab2 Raft 实现笔记 - lyk の blog</title><meta name="Description" content="This is my cool blog"><meta property="og:title" content="MIT 6.824 2020 (2) lab2 Raft 实现笔记" />
 <meta property="og:description" content="MIT 6.824 2020 (2) lab2 Raft 实现笔记 这个lab我是边看论文、边看课边做的，前前后后花了快2周，非常有挑战性。做完后感触颇深，特别是后来再去了解了一下Paxos后，更感慨raft的大道至简，也钦佩这篇论文的作者——来自Stanford的Diego Ongaro，一是钦佩他的严谨的思维，二是钦佩他的文字表达能力，我虽然从没接触过共识算法，但也能较轻松地看懂论文（唯一理解上比较吃力的是 figure 8，看了我一个下午我都没看懂，后来上网查才发现好多人也没看懂这个），并根据figure 2来实现一个这样的系统，真可谓是深入浅出。
 基础设施 labrpc是模拟了一个网络，网络除了模拟正常的网络延迟，还模拟了异常的情况，比如可能出现丢包（返回ReplyMsg{false, nil}), 长时间延迟等。
 config.go里相当于构建了一个raft集群环境，可以通过connect,、disconnect等模拟这个环境可能出现的状况。并通过checkOneLeader等接口可以查看这个环境当前的运行状况。另外还有one函数，会尝试start一个log，并检测集群内是否达到了共识，是主要的test手段。
@@ -12,12 +12,12 @@ lab2A 领导人选举 首先，每个raft服务启动时，会开启一个electi
 RequestVote RPC 代码如下，注意，后面关于有关与log的判断是lab2B加上去的。
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { // Your code here (2A, 2B). rf.mu.Lock() fmt.Printf(&#34;RV from %d to %d received: %&#43;v with curTerm:%d votedFor:%d\n&#34;, args.CandidateId, rf.me, args, rf.currentTerm, rf.votedFor) defer rf.mu.Unlock() reply.Term = rf.currentTerm if args.Term &lt; rf.currentTerm { reply.VoteGranted = false rf.persist() return } if args." />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="http://lyk.github.io/posts/raft/" /><meta property="og:image" content="http://lyk.github.io/logo.png"/><meta property="article:section" content="posts" />
+<meta property="og:url" content="https://lyukun.github.io/posts/raft/" /><meta property="og:image" content="https://lyukun.github.io/logo.png"/><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2023-08-27T12:22:37+08:00" />
 <meta property="article:modified_time" content="2023-08-27T12:22:37+08:00" /><meta property="og:site_name" content="My cool site" />
 
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:image" content="http://lyk.github.io/logo.png"/>
+<meta name="twitter:image" content="https://lyukun.github.io/logo.png"/>
 
 <meta name="twitter:title" content="MIT 6.824 2020 (2) lab2 Raft 实现笔记"/>
 <meta name="twitter:description" content="MIT 6.824 2020 (2) lab2 Raft 实现笔记 这个lab我是边看论文、边看课边做的，前前后后花了快2周，非常有挑战性。做完后感触颇深，特别是后来再去了解了一下Paxos后，更感慨raft的大道至简，也钦佩这篇论文的作者——来自Stanford的Diego Ongaro，一是钦佩他的严谨的思维，二是钦佩他的文字表达能力，我虽然从没接触过共识算法，但也能较轻松地看懂论文（唯一理解上比较吃力的是 figure 8，看了我一个下午我都没看懂，后来上网查才发现好多人也没看懂这个），并根据figure 2来实现一个这样的系统，真可谓是深入浅出。
@@ -29,7 +29,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { //
 <meta name="application-name" content="My cool site">
 <meta name="apple-mobile-web-app-title" content="My cool site"><meta name="theme-color" content="#ffffff"><meta name="msapplication-TileColor" content="#da532c"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="http://lyk.github.io/posts/raft/" /><link rel="prev" href="http://lyk.github.io/posts/cmu15445-2022fall/" /><link rel="next" href="http://lyk.github.io/posts/miniob/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5"><link rel="manifest" href="/site.webmanifest"><link rel="canonical" href="https://lyukun.github.io/posts/raft/" /><link rel="prev" href="https://lyukun.github.io/posts/cmu15445-2022fall/" /><link rel="next" href="https://lyukun.github.io/posts/miniob/" /><link rel="stylesheet" href="/css/style.min.css"><link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css"></noscript><link rel="preload" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css"></noscript><script type="application/ld+json">
     {
@@ -39,9 +39,9 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { //
         "inLanguage": "en-us",
         "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": "http:\/\/lyk.github.io\/posts\/raft\/"
+            "@id": "https:\/\/lyukun.github.io\/posts\/raft\/"
         },"genre": "posts","wordcount":  520 ,
-        "url": "http:\/\/lyk.github.io\/posts\/raft\/","datePublished": "2023-08-27T12:22:37+08:00","dateModified": "2023-08-27T12:22:37+08:00","publisher": {
+        "url": "https:\/\/lyukun.github.io\/posts\/raft\/","datePublished": "2023-08-27T12:22:37+08:00","dateModified": "2023-08-27T12:22:37+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
                 "@type": "Person",
@@ -332,7 +332,7 @@ they are tricky to use correctly.</p>
         <div class="post-info-line">
             <div class="post-info-md"></div>
             <div class="post-info-share">
-                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="http://lyk.github.io/posts/raft/" data-title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="http://lyk.github.io/posts/raft/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="http://lyk.github.io/posts/raft/" data-title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="http://lyk.github.io/posts/raft/" data-title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="http://lyk.github.io/posts/raft/" data-title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
+                <span><a href="javascript:void(0);" title="Share on Twitter" data-sharer="twitter" data-url="https://lyukun.github.io/posts/raft/" data-title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i class="fab fa-twitter fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Facebook" data-sharer="facebook" data-url="https://lyukun.github.io/posts/raft/"><i class="fab fa-facebook-square fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Hacker News" data-sharer="hackernews" data-url="https://lyukun.github.io/posts/raft/" data-title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i class="fab fa-hacker-news fa-fw" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on Line" data-sharer="line" data-url="https://lyukun.github.io/posts/raft/" data-title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i data-svg-src="https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg" aria-hidden="true"></i></a><a href="javascript:void(0);" title="Share on 微博" data-sharer="weibo" data-url="https://lyukun.github.io/posts/raft/" data-title="MIT 6.824 2020 (2) lab2 Raft 实现笔记"><i class="fab fa-weibo fa-fw" aria-hidden="true"></i></a></span>
             </div>
         </div>
     </div>

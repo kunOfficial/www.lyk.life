@@ -1,16 +1,16 @@
 <rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
     <channel>
         <title>lyk の blog</title>
-        <link>http://lyk.github.io/</link>
-        <description>This is my cool site</description>
+        <link>https://lyukun.github.io/</link>
+        <description>This is my cool blog</description>
         <generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Mon, 11 Mar 2024 19:56:02 &#43;0800</lastBuildDate>
-            <atom:link href="http://lyk.github.io/index.xml" rel="self" type="application/rss+xml" />
+            <atom:link href="https://lyukun.github.io/index.xml" rel="self" type="application/rss+xml" />
         <item>
     <title>MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记</title>
-    <link>http://lyk.github.io/posts/shardkv/</link>
+    <link>https://lyukun.github.io/posts/shardkv/</link>
     <pubDate>Mon, 11 Mar 2024 19:56:02 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/shardkv/</guid>
+    <guid>https://lyukun.github.io/posts/shardkv/</guid>
     <description><![CDATA[花了三周时间把拖了很久的Lab 4给做了，相比于前面3个lab，难度明显提高了很多。难点在于官方没有提供任何参考资料，但是给了很多hint。我认为这就是这个lab设计得最好的一点，不直接告诉你如何去解决这个问题，但是会给出一些可能有价值的hint，描绘出一个模糊的轮廓，启发学生的思考。
 不得不说，这是个很难得的锻炼自己系统设计能力的机会，如果去网上搜解决方案那就太浪费了。所以我还是和往常一样，坚持独立思考。采用的方法论还是那一套：问自己问题，然后自己回。不论问题大小，都记录下来，当问题大概都能解决了，整个思路就慢慢浮出水面了，觉得差不多了就可以开始动手了，边动手边和自己Q&amp;A。从结果来看，这个方法论是适合我的。
 接下来简单记录一下这个思考、实现、debug的过程，其中涉及到一些早期的废案（有标识），但我还是记下来了。
@@ -25,10 +25,10 @@ func (kv *ShardKV) updateConfig() { for { if atomic.LoadInt32(&amp;kv.dead) == 1
 </item>
 <item>
     <title>MIT 6.1810 fall2023 笔记</title>
-    <link>http://lyk.github.io/posts/xv6-lab/</link>
+    <link>https://lyukun.github.io/posts/xv6-lab/</link>
     <pubDate>Thu, 15 Feb 2024 16:31:50 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/xv6-lab/</guid>
+    <guid>https://lyukun.github.io/posts/xv6-lab/</guid>
     <description><![CDATA[MIT XV6 2023笔记 记录一下MIT 6.1810 2023 fall公开课（以前叫6.828）的lab，以及自己看xv6-book觉得有意思的点。一方面方便自己回顾，另外希望能帮上一些后来的朋友。
 Lab: Xv6 and Unix utilities sleep 没什么好说的
 pingpong 主要熟悉一下pipe系统调用，fd[2]第一个是rfd，第二个是wfd。思路就是创建两个pipe，父子进程通过管道进行同步，依次打印所需内容即可。
@@ -47,10 +47,10 @@ satp: 页表首地址
 </item>
 <item>
     <title>多核环境下in-memory database的挑战</title>
-    <link>http://lyk.github.io/posts/multi-core-survey/</link>
+    <link>https://lyukun.github.io/posts/multi-core-survey/</link>
     <pubDate>Wed, 10 Jan 2024 11:59:51 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/multi-core-survey/</guid>
+    <guid>https://lyukun.github.io/posts/multi-core-survey/</guid>
     <description><![CDATA[多核环境下in-memory database的挑战 多核下，从数据库系统（特别是内存数据库）等访存密集的应用，可能会因为访存行为而产生一些新的性能瓶颈，我将其分为两个方面，一个是共享内存时的缓存行所有权争用，这一点再OLTP的工作负载下尤为明显；另一个是NUMA架构带来的潜在的远程节点内存访问的问题，这一点是面向OLAP的数据库需要重点考虑的。
 服务器级CPU的架构 这一部分主要从硬件设计的角度看看现在服务器级CPU的宏观架构，这是一个很大的话题，不同厂商不同代的架构都不一样，不过当今总体的发展方向是比较稳定的，即堆核（没错，不仅RISC厂商在堆，CISC厂商也在堆）。
 先从主板说起，一个服务器一般是一个主板，一个主板上有多个socket，即物理插槽，一个插槽上可以插一个cpu package（可以理解为将多个die打包成为一个整体），即市面上买到的一个个CPU，一个CPU内可以有一个或者多个die，一个die由多个core组成。
@@ -69,10 +69,10 @@ A simple example, a 2 vCPU VM consuming on core 1 and 2 runs SQL server. The VM 
 </item>
 <item>
     <title>MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记</title>
-    <link>http://lyk.github.io/posts/kvserver/</link>
+    <link>https://lyukun.github.io/posts/kvserver/</link>
     <pubDate>Fri, 24 Nov 2023 23:47:28 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/kvserver/</guid>
+    <guid>https://lyukun.github.io/posts/kvserver/</guid>
     <description><![CDATA[MIT 6.824 2020 (3) Fault-tolerant Key/Value Service实现笔记 该博客主要关注功能实现，Read Lease等优化之后有时间填坑：）
 Basic Q&amp;A 首先需要问自己这些问题，想清楚后后就能理解server层和raft层之间的交互逻辑了。
 Q:对于client来说，在进行read请求时，是向leader发送（保证得到最新的数据），还是向任意一个节点发送呢？
@@ -98,10 +98,10 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
 </item>
 <item>
     <title>miniob 2023 初赛记录</title>
-    <link>http://lyk.github.io/posts/miniob/</link>
+    <link>https://lyukun.github.io/posts/miniob/</link>
     <pubDate>Wed, 08 Nov 2023 11:55:30 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/miniob/</guid>
+    <guid>https://lyukun.github.io/posts/miniob/</guid>
     <description><![CDATA[miniob 2023 初赛记录 写在前面 第一次参加miniob，记录一下初赛。总体来说没有什么技术难度，大部分是体力活，但也让我复习了不少数据库细节上的东西，比如MVCC、SQL解析与查询计划构建等等。记录是为了以后再参加时可以给自己或者其他同学做参考。
 各题思路 Drop table 这个sql解析语法已经写好了，需要做的是添加一个drop_table_executor，然后为Db类（管理数据库的元数据的类）添加一个drop_table函数，函数内需要删除一个table的元数据文件、index文件、data文件，然后还需要回收bufferpool中该文件对应的页，成功的话再将该table的tableMeta从Db类中删除即可，此时就完成了一个table的完全清理。
 update 这个虽然分值不高，但是涵盖了从sql层解析到底层table分页存储的内容。具体来说，包括：
@@ -116,10 +116,10 @@ multi-index 修改存储在index文件中第一页的元数据 实现最左匹�
 </item>
 <item>
     <title>MIT 6.824 2020 (2) lab2 Raft 实现笔记</title>
-    <link>http://lyk.github.io/posts/raft/</link>
+    <link>https://lyukun.github.io/posts/raft/</link>
     <pubDate>Sun, 27 Aug 2023 12:22:37 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/raft/</guid>
+    <guid>https://lyukun.github.io/posts/raft/</guid>
     <description><![CDATA[MIT 6.824 2020 (2) lab2 Raft 实现笔记 这个lab我是边看论文、边看课边做的，前前后后花了快2周，非常有挑战性。做完后感触颇深，特别是后来再去了解了一下Paxos后，更感慨raft的大道至简，也钦佩这篇论文的作者——来自Stanford的Diego Ongaro，一是钦佩他的严谨的思维，二是钦佩他的文字表达能力，我虽然从没接触过共识算法，但也能较轻松地看懂论文（唯一理解上比较吃力的是 figure 8，看了我一个下午我都没看懂，后来上网查才发现好多人也没看懂这个），并根据figure 2来实现一个这样的系统，真可谓是深入浅出。
 基础设施 labrpc是模拟了一个网络，网络除了模拟正常的网络延迟，还模拟了异常的情况，比如可能出现丢包（返回ReplyMsg{false, nil}), 长时间延迟等。
 config.go里相当于构建了一个raft集群环境，可以通过connect,、disconnect等模拟这个环境可能出现的状况。并通过checkOneLeader等接口可以查看这个环境当前的运行状况。另外还有one函数，会尝试start一个log，并检测集群内是否达到了共识，是主要的test手段。
@@ -129,10 +129,10 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { //
 </item>
 <item>
     <title>CMU15-445 (2022fall) project实现笔记</title>
-    <link>http://lyk.github.io/posts/cmu15445-2022fall/</link>
+    <link>https://lyukun.github.io/posts/cmu15445-2022fall/</link>
     <pubDate>Wed, 09 Aug 2023 15:29:40 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/cmu15445-2022fall/</guid>
+    <guid>https://lyukun.github.io/posts/cmu15445-2022fall/</guid>
     <description><![CDATA[数据库系统实现技术大作业 这是CMU 15-445 2022fall 的配套项目 bustub 2022fall，也是《数据库系统实现技术》这门选修课的大作业。这里简单记录一下作业的思路。
 Project #0 - C++ Primer 这个项目是做一个简单的Trie树，不属于bustub的主体部分，实现起来也很简单。核心数据结构就是TrieNode, 表示树中的一个顶点，is_end_成员表示该单词是否结束。整体没啥难的。
 class TrieNode{ protected: char key_char_; /** whether this node marks the end of a key */ bool is_end_{false}; /** A map of all child nodes of this trie node, which can be accessed by each * child node&#39;s key char. */ std::unordered_map&lt;char, std::unique_ptr&lt;TrieNode&gt;&gt; children_; } 主要是熟悉C++以及bustub的编码风格，以及一些工具的使用，包括用CMake\Make构建项目、用Clang-tidy来优化编码风格、用GDB来debug、用第三方库GoogleTest来进行单例测试等。
@@ -141,10 +141,10 @@ Task #1 Extendible Hash Table 这一部分是实现一个可扩展哈希表, 所
 </item>
 <item>
     <title>MIT 6.824 2020 (1) lab1 MapReduce实现笔记</title>
-    <link>http://lyk.github.io/posts/map_reduce/</link>
+    <link>https://lyukun.github.io/posts/map_reduce/</link>
     <pubDate>Tue, 08 Aug 2023 11:55:30 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/map_reduce/</guid>
+    <guid>https://lyukun.github.io/posts/map_reduce/</guid>
     <description><![CDATA[MIT 6.824 2020 (1) lab1 MapReduce实现笔记 花了几天时间做了这个lab, 算是入了分布式的门。一开始没啥头绪，但想明白Master需要维护哪些元信息，Master和Worker何时需要进行的rpc通信这些基本问题后，思路就渐渐明朗。得益于Go语言的简洁、方便的gorountine、GC、自带的RPC框架(虽然不知道为什么*Arg和*Reply不能传nil指针，传nil指针会导致RPC调用的结果有问题，关键是不提示有问题），实现起来也非常轻松，几乎没有心智负担。
 以下是我的一些笔记，这门课不允许在网上公开代码，但是为了便于描述，我还是将一部分核心代码贴了出来。
 Master和Worker的定义 命名方式随意了点：）
@@ -154,10 +154,10 @@ type Phase int8 type TaskType int8 type TaskStatus int8 // global phase const ( 
 </item>
 <item>
     <title>Hello world</title>
-    <link>http://lyk.github.io/posts/first_post/</link>
+    <link>https://lyukun.github.io/posts/first_post/</link>
     <pubDate>Tue, 21 Mar 2023 16:06:40 &#43;0800</pubDate>
     <author>lyk</author>
-    <guid>http://lyk.github.io/posts/first_post/</guid>
+    <guid>https://lyukun.github.io/posts/first_post/</guid>
     <description><![CDATA[hello world!
 打算开始写博客啦]]></description>
 </item>
