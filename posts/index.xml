@@ -78,7 +78,7 @@ A:client的读写请求都向leader发送，如果不知道leader是谁，就随
 Q:raft在进行写请求的时候，如果随机选中了一个旧的leader（比如在一个非majority的parition中的旧leader)，那写请求的拒绝执行是通过什么机制实现的？
 A:请求的回复应该是阻塞的，得等到leader确认该log被复制到大多数replica时，才能给出一个promise；所以，作为leader的server需要有处理请求超时的逻辑，防止自己是minority的旧leader，无法commit客户端的请求却久久不释放客户端连接。
 Q:为什么每个leader的term期开始时都要追加一个no-op log？
-A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index, 应该是一个道理）
+A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index,本质上说的是一样的事）。
 Q:server需要维护每个client的最后请求的序列号一防止重复执行，那这个信息是由leader在AP rpc里同步到followers吗？
 A:对，所以ClientId和Seq这两个信息都要作为log entry的一部分，followers commit的时候，server层可以可以根据根据这个进行去重。防止一个请求被apply多次。
 开始编码前的建议 个人感觉这部分比lab2要难调试一些，回顾起来，主要有两方面：遇到了很多死锁的问题；加上server和client后，log更多了，看起来比较吃力。所以，有以下推荐：

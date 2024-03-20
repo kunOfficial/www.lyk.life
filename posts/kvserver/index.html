@@ -12,7 +12,7 @@ A:client的读写请求都向leader发送，如果不知道leader是谁，就随
 Q:raft在进行写请求的时候，如果随机选中了一个旧的leader（比如在一个非majority的parition中的旧leader)，那写请求的拒绝执行是通过什么机制实现的？
 A:请求的回复应该是阻塞的，得等到leader确认该log被复制到大多数replica时，才能给出一个promise；所以，作为leader的server需要有处理请求超时的逻辑，防止自己是minority的旧leader，无法commit客户端的请求却久久不释放客户端连接。
 Q:为什么每个leader的term期开始时都要追加一个no-op log？
-A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index, 应该是一个道理）
+A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index,本质上说的是一样的事）。
 Q:server需要维护每个client的最后请求的序列号一防止重复执行，那这个信息是由leader在AP rpc里同步到followers吗？
 A:对，所以ClientId和Seq这两个信息都要作为log entry的一部分，followers commit的时候，server层可以可以根据根据这个进行去重。防止一个请求被apply多次。
 开始编码前的建议 个人感觉这部分比lab2要难调试一些，回顾起来，主要有两方面：遇到了很多死锁的问题；加上server和client后，log更多了，看起来比较吃力。所以，有以下推荐：
@@ -43,7 +43,7 @@ A:client的读写请求都向leader发送，如果不知道leader是谁，就随
 Q:raft在进行写请求的时候，如果随机选中了一个旧的leader（比如在一个非majority的parition中的旧leader)，那写请求的拒绝执行是通过什么机制实现的？
 A:请求的回复应该是阻塞的，得等到leader确认该log被复制到大多数replica时，才能给出一个promise；所以，作为leader的server需要有处理请求超时的逻辑，防止自己是minority的旧leader，无法commit客户端的请求却久久不释放客户端连接。
 Q:为什么每个leader的term期开始时都要追加一个no-op log？
-A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index, 应该是一个道理）
+A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index,本质上说的是一样的事）。
 Q:server需要维护每个client的最后请求的序列号一防止重复执行，那这个信息是由leader在AP rpc里同步到followers吗？
 A:对，所以ClientId和Seq这两个信息都要作为log entry的一部分，followers commit的时候，server层可以可以根据根据这个进行去重。防止一个请求被apply多次。
 开始编码前的建议 个人感觉这部分比lab2要难调试一些，回顾起来，主要有两方面：遇到了很多死锁的问题；加上server和client后，log更多了，看起来比较吃力。所以，有以下推荐：
@@ -72,7 +72,7 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "https:\/\/lyukun.github.io\/blog\/posts\/kvserver\/"
-        },"genre": "posts","wordcount":  279 ,
+        },"genre": "posts","wordcount":  301 ,
         "url": "https:\/\/lyukun.github.io\/blog\/posts\/kvserver\/","datePublished": "2023-11-24T23:47:28+08:00","dateModified": "2023-11-24T23:47:28+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
@@ -114,7 +114,7 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.824 2020 (3) lab3 Fault-tolerant Key/Value Service实现笔记</h1><div class="post-meta">
             <div class="post-meta-line"><span class="post-author"><a href="/blog/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
-            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-11-24">2023-11-24</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;279 words&nbsp;
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-11-24">2023-11-24</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;301 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;2 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
                 <div class="details-summary toc-title">
@@ -153,7 +153,7 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
 <p>Q:raft在进行写请求的时候，如果随机选中了一个旧的leader（比如在一个非majority的parition中的旧leader)，那写请求的拒绝执行是通过什么机制实现的？</p>
 <p>A:请求的回复应该是阻塞的，得等到leader确认该log被复制到大多数replica时，才能给出一个promise；所以，作为leader的server需要有处理请求超时的逻辑，防止自己是minority的旧leader，无法commit客户端的请求却久久不释放客户端连接。</p>
 <p>Q:为什么每个leader的term期开始时都要追加一个no-op log？</p>
-<p>A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index, 应该是一个道理）</p>
+<p>A:因为leader只能提交当前term期的log, 通过no-op log日志的提交能够间接提交之前的term期的未提交日志，这样能够保证leader在自己拿到任期后能尽快地进入可读状态。（原文中说的是leader可以尽快知道commit index,本质上说的是一样的事）。</p>
 <p>Q:server需要维护每个client的最后请求的序列号一防止重复执行，那这个信息是由leader在AP rpc里同步到followers吗？</p>
 <p>A:对，所以ClientId和Seq这两个信息都要作为log entry的一部分，followers commit的时候，server层可以可以根据根据这个进行去重。防止一个请求被apply多次。</p>
 <h2 id="开始编码前的建议">开始编码前的建议</h2>
@@ -234,17 +234,22 @@ Part A: Key/value service without log compaction 线性一致性 要满足线性
 <p>Q:为什么要分chunk传输？</p>
 <p>A:论文里说是为了维持心跳？我觉得分chunk主要是链路层的最大报文长度是有限制的。我不懂，知道的同学请告诉我：）</p>
 <h2 id="future-work">future work</h2>
-<p>现在本质上处理log的逻辑还是单线程的，会导致一个client拖累后面的client的处理，其实可以可以考虑改造成分发的形式</p>
 <ul>
 <li>
+<p>现在本质上处理log的逻辑还是单线程的，会导致一个client拖累后面的client的处理，其实可以可以考虑改造成分发的形式</p>
+</li>
+<li>
 <p>Read Index（Read Lease） / Follower Read</p>
-<p>这篇<a href="https://tanxinyu.work/consistency-and-consensus/#etcd-%E7%9A%84-Raft" target="_blank" rel="noopener noreffer ">博客</a>讲了etcd对于读的优化。为了达到线性一致性，那在处理get请求时leader就不能返回旧的数据回去，那能不能直接返回结果呢？答案是不能，因为在发生网络分区时，一个leader有可能只是minority的leader，它的状态机可能是落后与majority的leader的，如果直接返回结果，那就可能返回旧的结果，违反线性一致性。这里我采取的方法是将Read请求也作为一个log放在log队列中，等到commit到这个log时，再给client回复，我这里为了能。更好的做法其实是采用Read Index的方法，即leader收到get请求时，记录一下当前的commit index作为read index，然后再向所有成员发送一次心跳，如果收到大部分的成员的回复，那说明自己仍然是leader，这时就可以等待commit到read index（commit的过程是异步的）时，再回复结果。从线性顺序上，可以认为这个get请求发生在read index上。read index相比于我这个naive的做法优势很明显，一方面将等待时间从last index commit(我这么称呼的，因为read log是放在log队列末尾的) 缩短到了commit index commit；另一方面，大大减少了log的大小，从而减少compaction（snapshot)发生的频率。</p>
+<p>这篇<a href="https://tanxinyu.work/consistency-and-consensus/#etcd-%E7%9A%84-Raft" target="_blank" rel="noopener noreffer ">博客</a>讲了etcd对于读的优化。为了达到线性一致性，那在处理get请求时leader就不能返回旧的数据回去，那能不能直接返回结果呢？答案是不能，因为在发生网络分区时，一个leader有可能只是minority的leader，它的状态机可能是落后与majority的leader的，如果直接返回结果，那就可能返回旧的结果，违反线性一致性。这里我采取的方法是将Read请求也作为一个log放在log队列中，等到commit到这个log时，再给client回复，我这里为了能。</p>
+<p>更好的做法其实是采用Read Index的方法，即leader收到get请求时，记录一下当前的commit index作为read index，然后再向所有成员发送一次心跳，如果收到大部分的成员的回复，那说明自己仍然是leader，这时就可以等待apply到read index（commit的过程是异步的，假设a=1，前leader apply并完成了一个put a = 2的请求然后挂掉了，新leader当选后，自己的状态机可能还是apply index &lt; commit index的状态，那这时候如果不等apply index赶上commit index，那就会返回旧的数据a=1; 还要考虑到commit index本身也会滞后于前leader，所以在更新前，可能得保证自己任期的no-op log的心跳收到了大多数回复，commit index赶上了上任leader）时，再回复结果。从线性顺序上，可以认为这个get请求发生在read index上。read index相比于我这个naive的做法优势很明显，一方面将等待时间从last index commit(我这么称呼的，因为read log是放在log队列末尾的) 缩短到了commit index commit（更正：其实这一点算不上优化，因为还是需要发送心跳，并接收到大多数节点的success回复，这和将Read log这条log进行majarity replicate的网络时间消耗是一样的）；另一方面，大大减少了log的大小，从而减小compaction（snapshot）发生的频率。</p>
+<p>还有点值得注意的是，对于一个leader来说，需要先至少提交一次自己任期的log后，才能开始对外提供Read服务，这是因为leader在一开始是不知道commit index是多少的(或者说commit index初始化为0)，所以无法进行Read Index；这个约束对应着raft论文里“leader只能提交自己term期的log”这条规则。</p>
 <p>Read Lease是在Read index上的优化，为了减小leader的读延迟。即leader处理get请求时，不需要每次都去询问其他所有成员，而是在租约内直接给client答复。要点是租约严格小于election timeout的时间，这样就能保证租约内不会出现新的leader。租约通过每次AP rpc请求来进行续约。</p>
 <p>而Follower Read也是在Read index上的优化，为了扩展读性能。以上方法本质上还是由Leader来处理读请求，所以follower再多，也只是看戏，整体读性能也不会提升。而Follower Read参考PingCAP CTO的<a href="https://zhuanlan.zhihu.com/p/78164196" target="_blank" rel="noopener noreffer ">博客</a>：</p>
 <blockquote>
 <p>如何保证 Follower 上读到最新的数据呢？最土的办法就是将请求转发给 Leader，然后 Leader 返回最新的 Committed 的数据就好了嘛，Follower 当做 Proxy 来用。这个思路没有任何问题，而且实现起来也很简单还安全。但是，很明显这个地方可以优化成：<strong>Leader 只要告诉 Follower 当前最新的 Commit Index 就够了，因为无论如何，即使这个 Follower 本地没有这条日志，最终这条日志迟早都会在本地 Apply。</strong></p>
 <p>TiDB 目前的 Follower Read 正是如此实现的，当客户端对一个 Follower 发起读请求的时候，这个 Follower 会请求此时 Leader 的 Commit Index，拿到 Leader 的最新的 Commit Index 后，等本地 Apply 到 Leader 最新的 Commit Index 后，然后将这条数据返回给客户端，非常简洁。</p>
 </blockquote>
+<p>其实Follower Read我认为是牺牲了读延迟来来换取可扩展性，说他牺牲了读延迟是因为Follower向Leader请求ReadIndex的过程需要多消耗一个RTT。所以，我认为要兼具读延迟和较好的可扩展性，更好的办法是使用multi-raft，并将每个shard的LeaseOwner均分到各个机器上，每个shard都由各自的LeaseOwner来处理读写请求。CockroachDB的multi-raft选择的是这种做法，它的每个shard都大约为64MB，shard过大了或者过热了会进行分裂，它能够通过检测各个shard的访问热度以及在各个机器上的分布情况，去做负载均衡，保证各个机器的负载差不多。</p>
 </li>
 <li>
 <p>raft成员变更。该<a href="https://zhuanlan.zhihu.com/p/359206808" target="_blank" rel="noopener noreffer ">博客</a>讲解了raft中的成员变更。raft成员变更的方法可以分为两阶段变更和单步变更。论文中的Section 6, Cluster Membership Changes，增加了一个JoinPhase阶段，该阶段内的RV以及Commit Log时，都需要分别获得$C_{old}$和$C_{new}$(C用来表示configuration，即raft集群含有的node是哪些）中的多数派的同意，这样就避免了两个多数派同时出现时，可以分别单独进行决策的情况。</p>

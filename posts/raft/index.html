@@ -40,7 +40,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { //
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "https:\/\/lyukun.github.io\/blog\/posts\/raft\/"
-        },"genre": "posts","wordcount":  520 ,
+        },"genre": "posts","wordcount":  519 ,
         "url": "https:\/\/lyukun.github.io\/blog\/posts\/raft\/","datePublished": "2023-08-27T12:22:37+08:00","dateModified": "2023-08-27T12:22:37+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
@@ -82,7 +82,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) { //
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.824 2020 (2) lab2 Raft 实现笔记</h1><div class="post-meta">
             <div class="post-meta-line"><span class="post-author"><a href="/blog/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
-            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-27">2023-08-27</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;520 words&nbsp;
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2023-08-27">2023-08-27</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;519 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;3 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
                 <div class="details-summary toc-title">
@@ -310,10 +310,10 @@ they are tricky to use correctly.</p>
 <p>A:不需要，只需要在下一次与外界进行rpc交流前进行持久化即可。而RV和AP rpc调用时首先都要获取锁，所以只要在持久化之后释放锁，就能保证这一点。</p>
 <h2 id="总结">总结</h2>
 <h3 id="值得记录的历程">值得记录的历程</h3>
-<p>2023.8.25 TestPersist22C这个测试点卡了我大半天，最后发现居然是RV rpc写错了，逻辑想简单了，看来前面lab2A和lab2B的测例不够强。非常感谢raft官网的动画 [raft.github.io]，很助于理解。</p>
+<p>2023.8.25 TestPersist22C这个测试点卡了我大半天，最后发现居然是RV rpc写错了，逻辑想简单了，看来前面lab2A和lab2B的测例不够强。非常感谢raft官网的<a href="raft.github.io" rel="">动画</a>，很助于理解。</p>
 <p>2023.8.27 TestFigure82C这个测试点卡了我整整一天，最后发现居然是更新nextIndex的地方自作聪明避免使用使用Xindex，结果造成了nextIndex在特定情况下会僵持不动，无法完成backup的收敛。</p>
 <h3 id="感慨与收获">感慨与收获</h3>
-<p>一开始我还有不少地方想着不用完全按照论文里的一模一样来做，所以看了论文感觉大概理解后，就开始动手了，边想边做。结果就是Lab测例里稍微复杂点的测例就通不过——最终的结果就是，大费周折找到的几乎只有四种情况：1.手滑的低级错误（index写成XIndex等）；2.原文中我理解错的地方（如选举的timeout以及投票的逻辑）；3.原文中我忽视的地方（figure 8的问题)；4.论文里没说但是Morris说的quick backup部分，我很自信没完全按他的来，自以为“优化”了，其实是不严谨的。</p>
+<p>一开始我还有不少地方想着不用完全按照论文里的一模一样来做，所以看了论文感觉大概理解后，就开始动手了，边想边做。结果就是Lab测例里稍微复杂点的测例就通不过——最终的结果就是，大费周折找到的几乎只有四种情况：1.手滑的低级错误（index写成XIndex等）；2.原文中我理解错的地方（如选举的timeout以及投票的逻辑）；3.原文中我忽视的地方（figure 8的问题)；4.论文里说的quick backup部分，我很自信没完全按他的来，自以为“优化”了，其实是不严谨的。</p>
 <p>最大的收获是：我开始非常勤于问自己问题，并勤快地记录下自己的思考，应养成习惯！</p>
 <h3 id="下一步">下一步</h3>
 <p>学一下TLA+，看看Diego Ongaro给出的<a href="https://github.com/ongardie/raft.tla" target="_blank" rel="noopener noreffer ">证明</a></p>

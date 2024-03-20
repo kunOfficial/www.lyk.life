@@ -50,7 +50,7 @@ func (kv *ShardKV) updateConfig() { for { if atomic.LoadInt32(&amp;kv.dead) == 1
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "https:\/\/lyukun.github.io\/blog\/posts\/shardkv\/"
-        },"genre": "posts","wordcount":  451 ,
+        },"genre": "posts","wordcount":  466 ,
         "url": "https:\/\/lyukun.github.io\/blog\/posts\/shardkv\/","datePublished": "2024-03-11T19:56:02+08:00","dateModified": "2024-03-11T19:56:02+08:00","publisher": {
             "@type": "Organization",
             "name": ""},"author": {
@@ -92,7 +92,7 @@ func (kv *ShardKV) updateConfig() { for { if atomic.LoadInt32(&amp;kv.dead) == 1
             <div class="toc-content" id="toc-content-auto"></div>
         </div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">MIT 6.824 2020 (4) Lab 4: Sharded Key/Value Service 实现笔记</h1><div class="post-meta">
             <div class="post-meta-line"><span class="post-author"><a href="/blog/" title="Author" rel="author" class="author"><i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>lyk</a></span></div>
-            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2024-03-11">2024-03-11</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;451 words&nbsp;
+            <div class="post-meta-line"><i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>&nbsp;<time datetime="2024-03-11">2024-03-11</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden="true"></i>&nbsp;466 words&nbsp;
                 <i class="far fa-clock fa-fw" aria-hidden="true"></i>&nbsp;3 minutes&nbsp;</div>
         </div><div class="details toc" id="toc-static"  data-kept="">
                 <div class="details-summary toc-title">
@@ -179,9 +179,9 @@ func (kv *ShardKV) updateConfig() { for { if atomic.LoadInt32(&amp;kv.dead) == 1
 <p>一个传输的shard里包含的内容是对应shard的数据+proccessed_req，需要proccessed_req是因为需要防止某些请求在target group中重复执行。</p>
 <p><strong>Q: shard transfer的过程，即source group和target group分别需要做什么操作？</strong></p>
 <p>A:上面说的这个Transfer Shard RPC是个被动的传输过程，其实换成主动的Install Shard RPC好像更好理解。由old group的leader去调用new group leader的Install Shard RPC，在RPC中将这个Shard作为一个log放到raft层中，直到这条log成功apply，该RPC才会返回OK。如果返回OK，说明该shard已经在target group的大多数节点中了，即transfer成功，src group端可以删除该shard了（垃圾收集，chanllenge1）。</p>
-<p>**SendShardBeginOp log的必要性：**如果source group内部不对config change发生的时机达到共识的话，那在leader进行install snapshot时，如果crash了，新leader是无法生成一个相同的快照的（可能新leader又apply了一些新的key/value，处理了一些请求），此时再向target group发送Install snapshot请求时，可能target group已经完成了config change的过程了，甚至已经处理了一些请求了，这意味着有段时间内，两个group都能处理这个shard的请求，这就会违反线性一致性（在其中一个group中进行的请求结果无法及时反映到另外一个group中）。</p>
-<p>**RecvShardOp log的必要性：**一方面，target group的leader拿到shard后，需要将数据复制到多数节点上才能开始对外提供服务，所以可以将这个shard的内容作为一条log放到raft层去。另一方面，target group需要对何时开始为新shard向外提供服务达成共识，即提供一个log中的时间点，在这之前收到的请求应当拒绝。</p>
-<p>SendShardCompelete log的必要性：一方面，是为了做垃圾收集（确定何时才能安全地把某个shard从一个集群中删除），这个丢弃的时间需要在source group集群内达成一个共识；另一方面，这个是为了防止故障恢复后的重复发送InstallShard。</p>
+<p>**SendShardBeginOp log的必要性: **如果source group内部不对config change发生的时机达到共识的话，那在leader进行install shard时，如果crash了，新leader是无法生成一个相同的快照的（可能新leader又apply了一些新的key/value，处理了一些请求），此时再向target group发送Install snapshot请求时，可能target group已经完成了config change的过程了，甚至已经处理了一些请求了，这意味着有段时间内，两个group都能处理这个shard的请求，这就会违反线性一致性（在其中一个group中进行的请求结果无法及时反映到另外一个group中）。</p>
+<p>**RecvShardOp log的必要性: **一方面，target group的leader拿到shard后，需要将数据复制到多数节点上才能开始对外提供服务，所以可以将这个shard的内容作为一条log放到raft层去。另一方面，target group需要对何时开始为新shard向外提供服务达成共识，即提供一个log中的时间点，在这之前收到的请求应当拒绝。</p>
+<p>**SendShardCompelete log的必要性: **一方面，是为了做垃圾收集（确定何时才能安全地把某个shard从一个集群中删除），这个丢弃的时间需要在source group集群内达成一个共识；另一方面，这个是为了防止故障恢复后的重复发送InstallShard。</p>
 <p><strong>Q: 那什么时候src group才能丢弃这个shard呢（垃圾收集）？</strong></p>
 <p>A: target group的多数节点拿到这个shard后，返回InstallShard RPC success的reply， src group接收到reply后，即可安全丢弃。</p>
 <p>Q: 故障恢复时，遇到之前发送过的SendShardBegin op的log，还需要再send shard一遍吗？</p>
@@ -223,8 +223,8 @@ func (kv *ShardKV) updateConfig() { for { if atomic.LoadInt32(&amp;kv.dead) == 1
 <p>上面说了，InstallShard RPC的调用是异步的，所以shard_install_session的key应该是{gid, Num}这样一个pair，这样才能准确地标识一个session。</p>
 <p><strong>Q: apply SendShardOp\RecvShardOp如何去重？</strong></p>
 <p>A: 由于shard transfer是异步的过程，所以同一个config update的过程中，一个source group向一个target group传送shard可能得分多个InstallShard RPC完成。所以，这两个不需要刻意地做去重。</p>
-<p>对于SendShardOp，由于source group只会将自己status==Valid &amp;&amp; belongs to target gourp的shard送出去，已经是Sending状态的不需要再送（之前的goroutine会确保处于Sending的status最终会送到，对此，在故障恢复loadSnapshot时，如果发现一个shard的status是Sending状态，那么需要马上启动一个sendShard goroutine来继续之前没完成的传输工作，当时的InstallShardArgs可以存到Kvdata的shard中一起持久化，要是有rust的和类型就很方面了，可以存在Status::Sending中）。</p>
-<p>对于ShardRecvOp，由于target group只会接收status=Invalid的shard，所以遇到重复的ShardRecvOp也不会影响正确性。</p>
+<p>对于SendShardOp，由于source group只会将自己status==Valid &amp;&amp; belongs to target gourp的shard送出去，已经是Sending状态的不需要再送（之前的goroutine会确保处于Sending的status最终会送到，对此，在故障恢复loadSnapshot时，如果发现一个shard的status是Sending状态，那么需要马上启动一个sendShard goroutine来继续之前没完成的传输工作，当时的InstallShardArgs可以存到Kvdata的shard中一起持久化，要是有rust的和类型就很方面了，可以存在Status::Sending中；最后我没有采用这个方法，而是将snapshot改为了异步snapshot，保证所有sending process结束后，才能安全地进行snapshot）。</p>
+<p>对于ShardRecvOp，由于target group只会接收status=Invalid的shard，所以遇到重复的ShardRecvOp也不会影响正确性。2024.3.21 这里好像还有问题，在group A故障恢复时，group A向group B发送了一个旧的InstallShard请求，并成功作为一个raft log放在了group B的raft log队列末尾。group B提交到这条log时，可能这些shard现在并不属于这个group（因为这些shard实际上是旧的数据），如果按照target group接收status=Invalid的shard而不加其他限制的话，那shard B就会接收这些shard，并很可能马上又将其转交给最新的owner group去，这个过程是完全没有必要的。解决方法就是ShardRecvOp还是要去重，方法是为每个shard记录下recv过的最大的版本号，如果遇到之前见到过的版本，那即使status=Invalid也不应该接收。这个recv_max_version[shardmaster.n]数组也应该也应该持久化。</p>
 <h3 id="踩坑记录">踩坑记录</h3>
 <p>2024.3.5 config更新后，如果一个shard依然属于自己，那需要更新版本号。struct Config里的Groups是个map，复制的时候需要手动复制！</p>
 <p>2024.3.6 如果只是发现config更新后判断一次是否需要send是不行的，因为config更新时可能刚好没有leader!(正在选举中)，所以不能向raft层提交一条SendShard的log；所以，这个判断是否需要send的逻辑应当是个定期执行的任务。另外发现一个初始化时的问题：如果第一个join到集群的group在第一次获取config时，已经跳过了几个config，那可能之前本应该由其掌管的shard被他忽略了，之后遇到新config时，自然也不会transfer出去，这个shard就丢失了。这是由于我的设计中，shard是通过ShardRecv来被动接收的，所以整个系统管理的shard集合就是各个group初始化时的shard集合的并集，如果一开始就出现”无主的shard&quot;，那这个shard就永远丢失了。解决办法可以试试初始化的时候，强制通过ck.Query(1)去读Num=1的config（选择Num=1是因为它是第一个有意义的config），Num=1的config中永远包含所有shard。</p>
